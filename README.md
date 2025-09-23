@@ -206,13 +206,10 @@ configurations](#full-configuration).
 Subcommands do not have to be typed in full so long as they are not ambiguous.
 These shortcuts are shown in `[square brackets]` below.
 
-- `:[range]Mtoc[!]`
+- `:Mtoc`
 
-  If range not provided, update ToC if fences are found. If not, insert ToC at
-  cursor position.
-
-  If range provided, replace the range with newly generated ToC. If fences are
-  enabled and bang provided, also inserts fences.
+  Update all fenced ToCs in the current buffer. If no fenced ToCs are present,
+  this is a no-op. Use `:Mtoc insert` to insert a ToC.
 
 - `:Mtoc i[nsert]`
 
@@ -222,19 +219,15 @@ These shortcuts are shown in `[square brackets]` below.
   - If fences are enabled, fences are inserted without any content inside
   - Otherwise, an error is printed
 
-- `:[range]Mtoc u[pdate][!]`
+- `:Mtoc u[pdate]`
 
-  If range not provided, update ToC if fences are found.
-
-  If range provided, replace the range with newly generated ToC. If fences are
-  enabled and bang provided, also inserts fences.
-
-  It may print errors when no fences are found, start-end fences are not
-  matched, or end found before start.
+  Update all fenced ToCs in the current buffer (same as `:Mtoc`).
 
 - `:Mtoc r[emove]`
 
-  Remove ToC if fences are found.
+  Removes the ToC fenced block that encloses the cursor.
+  If no fenced block encloses the cursor, it falls back to removing the first
+  matching pair of fences.
 
   It may print errors when no fences are found, start-end fences are not
   matched, or end found before start.
