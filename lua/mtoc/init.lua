@@ -6,7 +6,7 @@ local empty_or_nil = utils.empty_or_nil
 local falsey = utils.falsey
 
 local M = {}
-M.commands = {'insert', 'update', 'remove', 'update_all'}
+M.commands = {'insert', 'remove', 'update'}
 
 local function fmt_fence_start(fence, label)
   if label and label ~= '' then
@@ -107,13 +107,30 @@ local function remove_toc(not_found_ok)
   local fences = get_fences()
   local hcfg = config.opts.headings
   local locations
-  if hcfg.min_depth ~= nil or hcfg.partial_under_cursor then
-    -- Try labeled fences for current section first
+  -- 1) Prefer the fenced block that encloses the cursor, if any
+  do
+    local ok, all = pcall(toc.find_all_fences)
+    if ok and all and #all > 0 then
+      local cur0 = utils.current_line() - 1
+      for _, item in ipairs(all) do
+        local s0 = item.start0 or (item.start and (item.start-1))
+        local e0 = item.end0 or item.end_ -- end0 is exclusive if provided
+        if s0 and e0 and s0 <= cur0 and cur0 < e0 then
+          -- Convert to 1-based inclusive [start, end]
+          locations = { start = s0 + 1, end_ = e0, label = item.label }
+          break
+        end
+      end
+    end
+  end
+  -- 2) If none under cursor, try labeled for current section (partial updates)
+  if not locations and (hcfg.min_depth ~= nil or hcfg.partial_under_cursor) then
     local label = toc.current_section_slug()
     if label and label ~= '' then
       locations = toc.find_fences_labeled(fences.start_text, fences.end_text, label)
     end
   end
+  -- 3) Fallback to the first matching pair
   if not locations then
     local fstart, fend = fmt_fence_start(fences.start_text), fmt_fence_end(fences.end_text)
     locations = toc.find_fences(fstart, fend)
@@ -151,41 +168,7 @@ local function remove_toc(not_found_ok)
   return locations
 end
 
-local function update_toc(opts, fail_ok)
-  if opts.range_start and opts.range_end then
-    utils.delete_lines(opts.range_start, opts.range_end)
-    pcall(vim.cmd, 'silent undojoin')
-    local use_fence = opts.bang
-    return insert_toc({ line = opts.range_start-1, disable_fence = not use_fence })
-  end
-
-  local locations = remove_toc(fail_ok)
-  if empty_or_nil(locations) then
-    return
-  end
-  pcall(vim.cmd, 'silent undojoin')
-  opts.line = locations.start-1
-  -- Reuse label if present (for partial ToCs)
-  if locations.label then
-    opts.label = locations.label
-  end
-  return insert_toc(opts)
-end
-
-local function update_or_remove_toc(opts)
-  if opts.range_start and opts.range_end then
-    return update_toc(opts)
-  end
-
-  local locations = remove_toc(true)
-  opts = opts or {}
-  if empty_or_nil(locations) then
-    opts.line = nil
-    return insert_toc(opts)
-  end
-  opts.line = locations.start-1
-  return insert_toc(opts)
-end
+-- Removed granular per-block update in favor of update_all_tocs()
 
 local function _debug_show_headings()
   local line = utils.current_line()
@@ -356,7 +339,8 @@ local function handle_command(opts)
   end
 
   if empty_or_nil(opts.fargs) then
-    return update_or_remove_toc(fnopts)
+    -- Default to update all fenced ToCs if no subcommand is provided
+    return update_all_tocs()
   end
 
   local cmd = opts.fargs[1]
@@ -385,11 +369,9 @@ local function handle_command(opts)
 
   if cmd == "insert" then
     return insert_toc(fnopts)
-  elseif cmd == "update" then
-    return update_toc(fnopts, false)
   elseif cmd == "remove" then
     return remove_toc()
-  elseif cmd == "update_all" then
+  elseif cmd == "update" then
     return update_all_tocs()
   else
     vim.notify("INTERNAL ERROR: Unhandled command "..cmd, vim.log.levels.ERROR)
