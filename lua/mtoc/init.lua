@@ -418,8 +418,9 @@ local function update_all_tocs()
   local ok, tocmod = pcall(require, 'mtoc/toc')
   if ok and tocmod.find_all_fences then
     all = tocmod.find_all_fences()
-  else
-    -- Fallback scanner: find all fenced blocks with optional labels
+  end
+  if empty_or_nil(all) then
+    -- Fallback internal scanner
     local start_list = fences.start_list
     local end_list = fences.end_list
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
@@ -432,19 +433,16 @@ local function update_all_tocs()
       elseif not in_code then
         local label = nil
         local matched_start = false
-        local used_start_tag
         for _, st in ipairs(start_list) do
           local start_pat = '^<!%-%-%s*'..st:gsub('%-', '%%-')..'(?::([%w%-%._]+))?%s*%-%->%s*$'
           local s_label = line:match(start_pat)
           if s_label ~= nil or line:match('^<!%-%-%s*'..st:gsub('%-', '%%-')..'%s*%-%->%s*$') then
             label = s_label
-            matched_start = true
-            used_start_tag = st
+            matched_start = st
             break
           end
         end
         if matched_start then
-          -- find matching end (support any end tag)
           local j = i + 1
           while j <= #lines do
             local l2 = lines[j]
@@ -458,7 +456,7 @@ local function update_all_tocs()
               end
               if matched_end then
                 table.insert(all, { start0 = i-1, end0 = j, label = label })
-                i = j -- advance to end
+                i = j
                 break
               end
             end
@@ -558,8 +556,20 @@ local function update_all_tocs()
           toc_lines = toc.gen_toc_list_for_range(s_range, e_range)
           config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min2, saved_max2
         end
-        -- Relabel fence to stable label derived from fileName#index among fenced ToCs
-        label_to_use = build_stable_label_for_index(item._ordinal or 1)
+        -- Relabel fence using a stable short hash derived from the current section heading text
+        local heading_line = vim.api.nvim_buf_get_lines(0, s_range, s_range+1, false)[1] or ''
+        local _, heading_name = string.match(heading_line, config.opts.headings.pattern)
+        heading_name = heading_name or heading_line
+        local new_hash
+        local ok3, dig = pcall(vim.fn.sha256, heading_name)
+        if ok3 and type(dig) == 'string' then
+          new_hash = string.sub(dig, 1, 7)
+        else
+          local sum = 0
+          for i3 = 1, #heading_name do sum = (sum * 33 + string.byte(heading_name, i3)) % 0xFFFFFFFF end
+          new_hash = string.format('%07x', sum)
+        end
+        label_to_use = new_hash
         relabel = true
         dbg('auto_update: relabeling partial fence to frozen label '..label_to_use)
       end

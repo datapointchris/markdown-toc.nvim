@@ -111,18 +111,34 @@ end
 ---with optional labels: { { start = s, end_ = e, label = 'slug'|nil }, ... }
 ---@return table[]
 function M.find_all_fences()
-  local fences = config.opts.fences
-  if type(fences) == 'boolean' and fences then
-    fences = config.defaults.fences
+  local fences_cfg = config.opts.fences
+  if type(fences_cfg) == 'boolean' and fences_cfg then
+    fences_cfg = config.defaults.fences
   end
-  local start_text = fences.start_text
-  local end_text = fences.end_text
-  local start_tags = { start_text }
-  local end_tags = { end_text }
-  -- Also recognize built-in default markers regardless of config
-  if start_text ~= 'mtoc-start' then table.insert(start_tags, 'mtoc-start') end
-  if end_text ~= 'mtoc-end' then table.insert(end_tags, 'mtoc-end') end
-  dbg(string.format('find_all_fences: using fence texts start="%s" end="%s"; also recognizing built-in mtoc-start/end', tostring(start_text), tostring(end_text)))
+  local function as_list(v)
+    if type(v) == 'string' then return { v } end
+    if type(v) == 'table' then return v end
+    return {}
+  end
+  local start_tags = as_list(fences_cfg.start_text)
+  local end_tags = as_list(fences_cfg.end_text)
+  -- Ensure built-in defaults are recognized too
+  local has_default_start, has_default_end = false, false
+  for _, t in ipairs(start_tags) do if t == 'mtoc-start' then has_default_start = true; break end end
+  for _, t in ipairs(end_tags) do if t == 'mtoc-end' then has_default_end = true; break end end
+  if not has_default_start then table.insert(start_tags, 'mtoc-start') end
+  if not has_default_end then table.insert(end_tags, 'mtoc-end') end
+  dbg('find_all_fences: normalized start_tags={'..table.concat(start_tags, ',')..'} end_tags={'..table.concat(end_tags, ',')..'}')
+
+  local function map_end_for_start(start_tag)
+    if start_tag == 'mtoc-start' then return 'mtoc-end' end
+    for i, st in ipairs(start_tags) do
+      if st == start_tag then
+        return end_tags[i] or (end_tags[1] or 'mtoc-end')
+      end
+    end
+    return end_tags[1] or 'mtoc-end'
+  end
 
   local parser_choice = (config.opts.headings and config.opts.headings.parser) or 'auto'
   local use_ts = (parser_choice == 'treesitter') or (parser_choice == 'auto' and ts_ok and tsq_html ~= nil)
@@ -188,7 +204,7 @@ function M.find_all_fences()
       return nil, nil
     end
     local function ts_match_end(txt, label, tag)
-      local endtag = (tag == 'mtoc-start') and 'mtoc-end' or tag
+      local endtag = map_end_for_start(tag)
       if label then
         if txt:match('<!%-%-%s*'..endtag..'%s*:%s*'..label..'%s*%-%->') then return true end
         -- Fallback: accept unlabeled end if labeled end isn't present in this html_block
@@ -209,8 +225,8 @@ function M.find_all_fences()
         local j = i + 1
         while j <= #blocks do
           local be = blocks[j]
-          local matched = ts_match_end(be.text, label, (start_tag == 'mtoc-start' and 'mtoc-end') or end_text)
-          dbg(string.format('TS: checking end at row %d label=%s tag=%s matched=%s', be.srow, tostring(label), tostring((start_tag == 'mtoc-start' and 'mtoc-end') or end_text), tostring(matched)))
+          local matched = ts_match_end(be.text, label, start_tag)
+          dbg(string.format('TS: checking end at row %d label=%s startTag=%s matched=%s', be.srow, tostring(label), tostring(start_tag), tostring(matched)))
           if matched then
             -- Return 0-based start and 0-based exclusive end rows
             table.insert(res, { start0 = b.srow, end0 = be.erow, label = label })
@@ -244,7 +260,7 @@ function M.find_all_fences()
     return nil, nil
   end
   local function rx_end_pat(label, tag)
-    local t = (tag == 'mtoc-start') and 'mtoc-end' or end_text
+    local t = map_end_for_start(tag)
     return '^%s*<!%-%-%s*'..t..(label and (':%s*'..label) or '')..'%s*%-%->%s*$'
   end
   while i <= #lines do
@@ -321,7 +337,7 @@ function M.find_all_fences()
     local k = j
     while k <= #ends do
       local en = ends[k]
-      local expected_end_tag = (st.tag == 'mtoc-start') and 'mtoc-end' or end_text
+      local expected_end_tag = map_end_for_start(st.tag)
       if st.label == en.label and en.tag == expected_end_tag then
         local s0 = pos_to_row(st.pos)
         local e0 = pos_to_row(en.pos)
