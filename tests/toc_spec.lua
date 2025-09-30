@@ -31,6 +31,79 @@ for _, parser_type in ipairs(parsers) do
       package.loaded['mtoc/toc'] = nil
     end)
   
+  it('recognizes multiple fence tags and rewrites using main tag with parser=' .. parser_type, function()
+    set_buf({
+      '<!-- mtoc-old-start -->',
+      '',
+      '- [Old will be replaced](#x)',
+      '',
+      '<!-- mtoc-old-end -->',
+      '',
+      '# Title',
+      '',
+      '## A',
+      '### A1',
+    })
+    setup_config({
+      headings = { parser = parser_type },
+      fences = {
+        enabled = true,
+        start_text = { 'mtoc-start', 'mtoc-old-start' },
+        end_text   = { 'mtoc-end',   'mtoc-old-end'   },
+      },
+      toc_list = { markers = {'*'}, cycle_markers = false, indent_size = 2 },
+    })
+    local mtoc = require('mtoc')
+    mtoc._auto_update()
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local found_start = false
+    local found_end = false
+    for _, l in ipairs(lines) do
+      if l:match('^<!%-%- %s*mtoc%-start') then found_start = true end
+      if l:match('^<!%-%- %s*mtoc%-end') then found_end = true end
+    end
+    assert.is_true(found_start)
+    assert.is_true(found_end)
+    -- ensure ToC content was regenerated (contains A and A1 links)
+    local joined = table.concat(lines, '\n')
+    assert.is_true(joined:find('%[A%]') ~= nil)
+    assert.is_true(joined:find('%[A1%]') ~= nil)
+  end)
+
+  it('keeps original single-string fence behavior with parser=' .. parser_type, function()
+    set_buf({
+      '<!-- mtoc-start -->',
+      '',
+      '- [To be replaced](#x)',
+      '',
+      '<!-- mtoc-end -->',
+      '',
+      '# Title',
+      '',
+      '## B',
+    })
+    setup_config({
+      headings = { parser = parser_type },
+      fences = {
+        enabled = true,
+        start_text = 'mtoc-start',
+        end_text   = 'mtoc-end',
+      },
+      toc_list = { markers = {'*'}, cycle_markers = false, indent_size = 2 },
+    })
+    local mtoc = require('mtoc')
+    mtoc._auto_update()
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    assert.is_true(lines[1]:match('^<!%-%- %s*mtoc%-start') ~= nil)
+    local found_end = false
+    for _, l in ipairs(lines) do
+      if l:match('^<!%-%- %s*mtoc%-end') then found_end = true; break end
+    end
+    assert.is_true(found_end)
+    local joined = table.concat(lines, '\n')
+    assert.is_true(joined:find('%[B%]') ~= nil)
+  end)
+
     it('respects min/max depth in partial generation by label with parser=' .. parser_type, function()
       set_buf({
         '# Title',
