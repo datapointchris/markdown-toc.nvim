@@ -6,19 +6,33 @@ local empty_or_nil = utils.empty_or_nil
 local falsey = utils.falsey
 
 local M = {}
-M.commands = {'insert', 'remove', 'update'}
+M.commands = {'insert', 'remove', 'update', 'pick'}
 
-local function fmt_fence_start(fence, label)
+local function fmt_fence_start(fence, label, min_b, max_b)
   if label and label ~= '' then
-    return '<!-- '..fence..':'..label..' -->'
+    local s = '<!-- ' .. fence .. ':' .. label
+    if min_b ~= nil then
+      s = s .. ':' .. tostring(min_b)
+      if max_b ~= nil then
+        s = s .. ':' .. tostring(max_b)
+      end
+    end
+    return s .. ' -->'
   end
-  return '<!-- '..fence..' -->'
+  return '<!-- ' .. fence .. ' -->'
 end
-local function fmt_fence_end(fence, label)
+local function fmt_fence_end(fence, label, min_b, max_b)
   if label and label ~= '' then
-    return '<!-- '..fence..':'..label..' -->'
+    local s = '<!-- ' .. fence .. ':' .. label
+    if min_b ~= nil then
+      s = s .. ':' .. tostring(min_b)
+      if max_b ~= nil then
+        s = s .. ':' .. tostring(max_b)
+      end
+    end
+    return s .. ' -->'
   end
-  return '<!-- '..fence..' -->'
+  return '<!-- ' .. fence .. ' -->'
 end
 
 local function get_fences()
@@ -40,15 +54,27 @@ local function insert_toc(opts)
   local lines = {}
   local fences = get_fences()
   local use_fence = fences.enabled and not opts.disable_fence
+  if opts.force_fence then
+    use_fence = true
+  end
+  -- Optional heading bounds for this insertion (recorded on fences)
+  local min_b = opts.min_depth
+  local max_b = opts.max_depth
 
   -- Generate either a full or a partial (scoped) ToC based on config
   local hcfg = config.opts.headings
   local label = opts.label
-  if (hcfg.min_depth ~= nil or hcfg.partial_under_cursor) then
+  if opts.force_section or (hcfg.min_depth ~= nil or hcfg.partial_under_cursor) then
     -- Determine current section range and build partial TOC strictly from it
     local cur = vim.api.nvim_win_get_cursor(0)[1]
     local s_range, e_range = toc.find_current_section_range(cur)
-    lines = toc.gen_toc_list_for_range(s_range, e_range)
+    do
+      local saved_min, saved_max = hcfg.min_depth, hcfg.max_depth
+      if min_b ~= nil then hcfg.min_depth = min_b end
+      if max_b ~= nil then hcfg.max_depth = max_b end
+      lines = toc.gen_toc_list_for_range(s_range, e_range)
+      hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
+    end
     -- Create and freeze a stable short-hash label from the parent heading text
     if not label or label == '' then
       local heading_line = vim.api.nvim_buf_get_lines(0, s_range, s_range+1, false)[1] or ''
@@ -71,14 +97,20 @@ local function insert_toc(opts)
     if hcfg.before_toc then
       gen_start = 0
     end
-    lines = toc.gen_toc_list(gen_start)
+    do
+      local saved_min, saved_max = hcfg.min_depth, hcfg.max_depth
+      if min_b ~= nil then hcfg.min_depth = min_b end
+      if max_b ~= nil then hcfg.max_depth = max_b end
+      lines = toc.gen_toc_list(gen_start)
+      hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
+    end
   end
   if empty_or_nil(lines) then
     if use_fence then
       lines = {
-        fmt_fence_start(fences.start_text, label),
+        fmt_fence_start(fences.start_text, label, min_b, max_b),
         '',
-        fmt_fence_end(fences.end_text, label),
+        fmt_fence_end(fences.end_text, label, min_b, max_b),
       }
     else
       vim.notify("No markdown headings", vim.log.levels.ERROR)
@@ -188,6 +220,114 @@ local function dbg(msg)
   end
 end
 
+-- Telescope picker: preview ToC variants for common heading-level bounds and insert selection
+local function pick_insert_telescope()
+  local ok, telescope = pcall(require, 'telescope')
+  if not ok then
+    -- No-op when Telescope is not installed
+    return
+  end
+  local pickers = require('telescope.pickers')
+  local finders = require('telescope.finders')
+  local conf = require('telescope.config').values
+  local actions = require('telescope.actions')
+  local action_state = require('telescope.actions.state')
+  local previewers = require('telescope.previewers')
+
+  -- Capture source buffer and cursor BEFORE opening picker
+  local src_buf = vim.api.nvim_get_current_buf()
+  local src_cur_line = vim.api.nvim_win_get_cursor(0)[1]
+
+  -- Build presets dynamically from source buffer context
+  local presets = {}
+  do
+    -- Always include a Global preset (full document)
+    table.insert(presets, { name = 'Global ToC (all headings)', scope = 'global', min = nil, max = nil })
+    -- Determine section base depth for incremental presets using captured cursor
+    local base_depth = 1
+    local max_depth_found = 1
+    local s_range, e_range
+    vim.api.nvim_buf_call(src_buf, function()
+      s_range, e_range = toc.find_current_section_range(src_cur_line)
+      local line = vim.api.nvim_buf_get_lines(src_buf, s_range, s_range+1, false)[1] or ''
+      local pfx = line:match(config.opts.headings.pattern)
+      if pfx then base_depth = #pfx end
+      -- Scan lines in section to find maximum heading depth available
+      local is_inside_code_block = false
+      for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, s_range, e_range, false)) do
+        if l:find('^```') then
+          is_inside_code_block = not is_inside_code_block
+        elseif not is_inside_code_block then
+          local hpfx = l:match(config.opts.headings.pattern)
+          if hpfx and #hpfx <= 6 then
+            if #hpfx > max_depth_found then max_depth_found = #hpfx end
+          end
+        end
+      end
+    end)
+    -- Section (all headings within section)
+    table.insert(presets, { name = 'Section ToC (all headings)', scope = 'section', min = nil, max = nil, base = base_depth })
+    -- Section with incremental max levels: offer only levels that actually exist in the section
+    local min_lvl = math.min(base_depth + 1, 6)
+    local end_lvl = math.min(max_depth_found, 6)
+    for lvl = min_lvl, end_lvl do
+      local label = (lvl == min_lvl) and string.format('Section: H%d only', lvl) or string.format('Section: H%d..H%d', min_lvl, lvl)
+      table.insert(presets, { name = label, scope = 'section', min = min_lvl, max = lvl, base = base_depth })
+    end
+  end
+
+  local function render_preview(bufnr, min_b, max_b, scope)
+    local lines = {}
+    vim.api.nvim_buf_call(src_buf, function()
+      local hcfg = config.opts.headings
+      local saved_min, saved_max = hcfg.min_depth, hcfg.max_depth
+      if min_b ~= nil then hcfg.min_depth = min_b end
+      if max_b ~= nil then hcfg.max_depth = max_b end
+      if scope == 'section' then
+        local s_range, e_range = toc.find_current_section_range(src_cur_line)
+        lines = toc.gen_toc_list_for_range(s_range, e_range)
+      else
+        local gen_start = src_cur_line
+        if hcfg.before_toc then gen_start = 0 end
+        lines = toc.gen_toc_list(gen_start)
+      end
+      hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
+    end)
+    if not lines or #lines == 0 then lines = { '(empty)' } end
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+    pcall(vim.api.nvim_buf_set_option, bufnr, 'filetype', 'markdown')
+  end
+
+  pickers.new({}, {
+    prompt_title = 'Insert ToC (choose heading levels)',
+    finder = finders.new_table({
+      results = presets,
+      entry_maker = function(item)
+        return {
+          value = item,
+          display = item.name,
+          ordinal = item.name,
+        }
+      end,
+    }),
+    sorter = conf.generic_sorter({}),
+    previewer = previewers.new_buffer_previewer({
+      define_preview = function(self, entry)
+        local v = entry.value
+        render_preview(self.state.bufnr, v.min, v.max, v.scope)
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr, map)
+      actions.select_default:replace(function()
+        local selection = action_state.get_selected_entry().value
+        actions.close(prompt_bufnr)
+        insert_toc({ min_depth = selection.min, max_depth = selection.max, force_fence = true, force_section = (selection.scope == 'section') })
+      end)
+      return true
+    end,
+  }):find()
+end
+
 -- Update all fenced ToCs in the current buffer. Preserves labels for partial ToCs.
 local function update_all_tocs()
   local fences = get_fences()
@@ -241,7 +381,7 @@ local function update_all_tocs()
   -- Process from bottom to top to keep indices stable while replacing lines
   for i = #all, 1, -1 do
     local item = all[i]
-    -- Re-read the start fence line to preserve the exact existing label
+    -- Re-read the start fence line to preserve the exact existing label and bounds
     do
       local s0 = item.start0 or (item.start and (item.start-1)) or 0
       local line = vim.api.nvim_buf_get_lines(0, s0, s0+1, false)[1] or ''
@@ -250,14 +390,19 @@ local function update_all_tocs()
       if fences.start_text ~= 'mtoc-start' then table.insert(candidates, 'mtoc-start') end
       local found = nil
       local used_tag = nil
+      local min_b, max_b
       for _, tag in ipairs(candidates) do
-        local pat = '^%s*<!%-%-%s*'..tag..'%s*:%s*([^>]+)%-%-%>%s*$'
-        local pat = '<!%-%-%s*' .. tag:gsub('%-', '%%-') .. ':([%w%-_]*)%s*%-%->'
-        local f = line:match(pat)
-        if f then
-          f = f:gsub('%s+$', ''):gsub('^%s+', '')
-          found = f
+        local after = line:match('^%s*<!%-%-%s*'..tag:gsub('%-', '%%-')..'%s*:(.-)%-%->%s*$')
+        if after then
           used_tag = tag
+          local i = 1
+          for part in after:gmatch('[^:]+') do
+            part = part:gsub('^%s+', ''):gsub('%s+$', '')
+            if i == 1 then found = part ~= '' and part or nil
+            elseif i == 2 then min_b = tonumber(part)
+            elseif i == 3 then max_b = tonumber(part) end
+            i = i + 1
+          end
           break
         end
       end
@@ -269,20 +414,34 @@ local function update_all_tocs()
       else
         dbg('update_all: no label found on start line; will regenerate full ToC')
       end
+      item.min_b = min_b
+      item.max_b = max_b
     end
     local toc_lines
     local label_to_use = item.label
     local relabel = false
     if item.label and item.label ~= '' then
       dbg('auto_update: regenerating partial ToC for label='..item.label)
-      toc_lines = toc.gen_toc_list_for_label(item.label)
+      do
+        local saved_min, saved_max = config.opts.headings.min_depth, config.opts.headings.max_depth
+        if item.min_b ~= nil then config.opts.headings.min_depth = item.min_b end
+        if item.max_b ~= nil then config.opts.headings.max_depth = item.max_b end
+        toc_lines = toc.gen_toc_list_for_label(item.label)
+        config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min, saved_max
+      end
       if utils.empty_or_nil(toc_lines) then
         -- Likely the parent heading was renamed. Recompute by section range
         local s0 = item.start0 or (item.start and (item.start-1)) or 0
         local cur_line = s0 + 1 -- 1-based for range finder
         local s_range, e_range = toc.find_current_section_range(cur_line)
         dbg(string.format('auto_update: label produced empty TOC; recomputing by range [%d,%d)', s_range, e_range))
-        toc_lines = toc.gen_toc_list_for_range(s_range, e_range)
+        do
+          local saved_min2, saved_max2 = config.opts.headings.min_depth, config.opts.headings.max_depth
+          if item.min_b ~= nil then config.opts.headings.min_depth = item.min_b end
+          if item.max_b ~= nil then config.opts.headings.max_depth = item.max_b end
+          toc_lines = toc.gen_toc_list_for_range(s_range, e_range)
+          config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min2, saved_max2
+        end
         -- Relabel fence with a stable short hash derived from current section heading
         local heading_line = vim.api.nvim_buf_get_lines(0, s_range, s_range+1, false)[1] or ''
         local _, heading_name = string.match(heading_line, config.opts.headings.pattern)
@@ -303,15 +462,21 @@ local function update_all_tocs()
       end
     else
       dbg('auto_update: regenerating full ToC')
-      toc_lines = toc.gen_toc_list(0)
+      do
+        local saved_min, saved_max = config.opts.headings.min_depth, config.opts.headings.max_depth
+        if item.min_b ~= nil then config.opts.headings.min_depth = item.min_b end
+        if item.max_b ~= nil then config.opts.headings.max_depth = item.max_b end
+        toc_lines = toc.gen_toc_list(0)
+        config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min, saved_max
+      end
     end
     toc_lines = config.opts.toc_list.post_processor(toc_lines)
     local new_block = {}
-    table.insert(new_block, fmt_fence_start(fences.start_text, label_to_use))
+    table.insert(new_block, fmt_fence_start(fences.start_text, label_to_use, item.min_b, item.max_b))
     if not (toc_lines[1] == '' or #toc_lines == 0) then table.insert(new_block, '') end
     for _, l in ipairs(toc_lines) do table.insert(new_block, l) end
     if new_block[#new_block] ~= '' then table.insert(new_block, '') end
-    table.insert(new_block, fmt_fence_end(fences.end_text, label_to_use))
+    table.insert(new_block, fmt_fence_end(fences.end_text, label_to_use, item.min_b, item.max_b))
     -- Replace the existing fenced block
     local s0 = item.start0 or (item.start and (item.start-1)) or 0
     local e0 = item.end0 or item.end_ or s0
@@ -373,6 +538,8 @@ local function handle_command(opts)
     return remove_toc()
   elseif cmd == "update" then
     return update_all_tocs()
+  elseif cmd == "pick" then
+    return pick_insert_telescope()
   else
     vim.notify("INTERNAL ERROR: Unhandled command "..cmd, vim.log.levels.ERROR)
   end
