@@ -40,7 +40,55 @@ local function get_fences()
   if type(fences) == 'boolean' and fences then
     fences = config.defaults.fences
   end
-  return fences
+  local function as_list(v)
+    if type(v) == 'string' then return { v } end
+    if type(v) == 'table' then return v end
+    return {}
+  end
+  local start_list = as_list(fences.start_text)
+  local end_list = as_list(fences.end_text)
+  local start_main = start_list[1] or 'mtoc-start'
+  local end_main = end_list[1] or 'mtoc-end'
+  return {
+    enabled = fences.enabled,
+    start_main = start_main,
+    end_main = end_main,
+    start_list = start_list,
+    end_list = end_list,
+  }
+end
+
+-- Count existing fenced ToCs in buffer (best-effort)
+local function count_existing_tocs()
+  local fences = get_fences()
+  local ok, all = pcall(toc.find_all_fences)
+  if ok and all and #all > 0 then return #all end
+  -- Fallback scan
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local cnt = 0
+  for _, line in ipairs(lines) do
+    for _, tag in ipairs(fences.start_list) do
+      if line:match('^<!%-%-%s*'..tag:gsub('%-', '%%-')..'%s*:?.-%-%->%s*$') then
+        cnt = cnt + 1
+        break
+      end
+    end
+  end
+  return cnt
+end
+
+-- Build a stable short label based on file name and ToC index (1-based)
+local function build_stable_label_for_index(idx)
+  local fname = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ':t')
+  if fname == '' then fname = 'untitled' end
+  local base = string.format('%s#%d', fname, idx)
+  local ok, dig = pcall(vim.fn.sha256, base)
+  if ok and type(dig) == 'string' then
+    return string.sub(dig, 1, 7)
+  end
+  local sum = 0
+  for i = 1, #base do sum = (sum * 33 + string.byte(base, i)) % 0xFFFFFFFF end
+  return string.format('%07x', sum)
 end
 
 local function insert_toc(opts)
@@ -75,21 +123,10 @@ local function insert_toc(opts)
       lines = toc.gen_toc_list_for_range(s_range, e_range)
       hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
     end
-    -- Create and freeze a stable short-hash label from the parent heading text
+    -- Create and freeze a stable short label derived from fileName#tocIndex
     if not label or label == '' then
-      local heading_line = vim.api.nvim_buf_get_lines(0, s_range, s_range+1, false)[1] or ''
-      local _, heading_name = string.match(heading_line, config.opts.headings.pattern)
-      heading_name = heading_name or heading_line
-      local new_hash
-      local ok, dig = pcall(vim.fn.sha256, heading_name)
-      if ok and type(dig) == 'string' then
-        new_hash = string.sub(dig, 1, 7)
-      else
-        local sum = 0
-        for i = 1, #heading_name do sum = (sum * 33 + string.byte(heading_name, i)) % 0xFFFFFFFF end
-        new_hash = string.format('%07x', sum)
-      end
-      label = new_hash
+      local idx = count_existing_tocs() + 1
+      label = build_stable_label_for_index(idx)
     end
   else
     -- Full ToC: optionally include headings before the insertion point in generation
@@ -104,13 +141,17 @@ local function insert_toc(opts)
       lines = toc.gen_toc_list(gen_start)
       hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
     end
+    if not label or label == '' then
+      local idx = count_existing_tocs() + 1
+      label = build_stable_label_for_index(idx)
+    end
   end
   if empty_or_nil(lines) then
     if use_fence then
       lines = {
-        fmt_fence_start(fences.start_text, label, min_b, max_b),
+        fmt_fence_start(fences.start_main, label, min_b, max_b),
         '',
-        fmt_fence_end(fences.end_text, label, min_b, max_b),
+        fmt_fence_end(fences.end_main, label, min_b, max_b),
       }
     else
       vim.notify("No markdown headings", vim.log.levels.ERROR)
@@ -159,21 +200,35 @@ local function remove_toc(not_found_ok)
   if not locations and (hcfg.min_depth ~= nil or hcfg.partial_under_cursor) then
     local label = toc.current_section_slug()
     if label and label ~= '' then
-      locations = toc.find_fences_labeled(fences.start_text, fences.end_text, label)
+      -- Try all configured start/end tags
+      for _, st in ipairs(fences.start_list) do
+        for _, en in ipairs(fences.end_list) do
+          local loc = toc.find_fences_labeled(st, en, label)
+          if loc and (loc.start or loc.end_) then locations = loc; break end
+        end
+        if locations then break end
+      end
     end
   end
   -- 3) Fallback to the first matching pair
   if not locations then
-    local fstart, fend = fmt_fence_start(fences.start_text), fmt_fence_end(fences.end_text)
+    local fstart, fend = fmt_fence_start(fences.start_main), fmt_fence_end(fences.end_main)
     locations = toc.find_fences(fstart, fend)
   end
   -- Try to detect and return label from the start fence line if present
   if locations and locations.start then
     local line = vim.api.nvim_buf_get_lines(0, locations.start-1, locations.start, false)[1] or ''
-    local pat = '^<!%-%- %s*'..fences.start_text..':([%w%-%._]+) %-%->%s*$'
-    local found = string.match(line, pat)
-    if found then
-      locations.label = found
+    local tags = vim.deepcopy(fences.start_list)
+    local has_default = false
+    for _, t in ipairs(tags) do if t == 'mtoc-start' then has_default = true; break end end
+    if not has_default then table.insert(tags, 'mtoc-start') end
+    for _, tag in ipairs(tags) do
+      local after = line:match('^%s*<!%-%-%s*'..tag:gsub('%-', '%%-')..'%s*:(.-)%-%->%s*$')
+      if after then
+        local first = after:match('^[^:]+')
+        if first and first ~= '' then locations.label = first end
+        break
+      end
     end
   end
   if empty_or_nil(locations) or (falsey(locations.start) and falsey(locations.end_)) then
@@ -218,6 +273,32 @@ local function dbg(msg)
   if config.opts and config.opts.debug then
     vim.notify('[mtoc] '..msg, vim.log.levels.INFO)
   end
+end
+
+-- Select fenced ToC as a text object (inner = true excludes the fence lines)
+function M._select_toc_textobj(inner)
+  local ok, all = pcall(toc.find_all_fences)
+  if not ok or not all or #all == 0 then return '' end
+  local cur0 = utils.current_line() - 1
+  local target
+  for _, it in ipairs(all) do
+    local s0 = it.start0 or (it.start and (it.start-1))
+    local e0 = it.end0 or it.end_
+    if s0 and e0 and s0 <= cur0 and cur0 < e0 then target = it; break end
+  end
+  if not target then return '' end
+  local s = (target.start0 or (target.start and (target.start-1)) or 0) + 1
+  local e = target.end0 or target.end_ or s
+  if inner then
+    s = math.min(e, s + 1)
+    e = math.max(s, e - 1)
+  end
+  local buf = vim.api.nvim_get_current_buf()
+  local maxcol_s = 1
+  local maxcol_e = #((vim.api.nvim_buf_get_lines(buf, e-1, e, false)[1] or '')) + 1
+  vim.fn.setpos("'<", {buf, s, maxcol_s, 0})
+  vim.fn.setpos("'>", {buf, e, maxcol_e, 0})
+  return 'gv'
 end
 
 -- Telescope picker: preview ToC variants for common heading-level bounds and insert selection
@@ -339,8 +420,8 @@ local function update_all_tocs()
     all = tocmod.find_all_fences()
   else
     -- Fallback scanner: find all fenced blocks with optional labels
-    local start_text = fences.start_text
-    local end_text = fences.end_text
+    local start_list = fences.start_list
+    local end_list = fences.end_list
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local in_code = false
     local i = 1
@@ -350,20 +431,32 @@ local function update_all_tocs()
         in_code = not in_code
       elseif not in_code then
         local label = nil
-        local start_pat = '^<!%-%- %s*'..start_text..'(?::([%w%-%._]+))? %-%->%s*$'
-        local s_label = line:match(start_pat)
-        if s_label ~= nil or line:match('^<!%-%- %s*'..start_text..' %-%->%s*$') then
-          label = s_label
-          -- find matching end
+        local matched_start = false
+        local used_start_tag
+        for _, st in ipairs(start_list) do
+          local start_pat = '^<!%-%-%s*'..st:gsub('%-', '%%-')..'(?::([%w%-%._]+))?%s*%-%->%s*$'
+          local s_label = line:match(start_pat)
+          if s_label ~= nil or line:match('^<!%-%-%s*'..st:gsub('%-', '%%-')..'%s*%-%->%s*$') then
+            label = s_label
+            matched_start = true
+            used_start_tag = st
+            break
+          end
+        end
+        if matched_start then
+          -- find matching end (support any end tag)
           local j = i + 1
-          local end_pat = '^<!%-%- %s*'..end_text..(label and (':'..label) or '')..' %-%->%s*$'
           while j <= #lines do
             local l2 = lines[j]
             if l2:find('^```') then
               in_code = not in_code
             elseif not in_code then
-              if l2:match(end_pat) then
-                -- convert to 0-based [start0, end0_excl]
+              local matched_end = false
+              for _, en in ipairs(end_list) do
+                local end_pat = '^<!%-%-%s*'..en:gsub('%-', '%%-')..(label and (':'..label) or '')..'%s*%-%->%s*$'
+                if l2:match(end_pat) then matched_end = true; break end
+              end
+              if matched_end then
                 table.insert(all, { start0 = i-1, end0 = j, label = label })
                 i = j -- advance to end
                 break
@@ -377,6 +470,27 @@ local function update_all_tocs()
     end
   end
   dbg('auto_update: found '..tostring(#all)..' fenced ToCs')
+  -- Pre-compute ordinals in source order for stable relabeling
+  do
+    local idx_map = {}
+    local arr = {}
+    for _, it in ipairs(all) do
+      table.insert(arr, it)
+    end
+    table.sort(arr, function(a, b)
+      local as = a.start0 or (a.start and (a.start-1)) or 0
+      local bs = b.start0 or (b.start and (b.start-1)) or 0
+      return as < bs
+    end)
+    for i, it in ipairs(arr) do
+      local key = (it.start0 or (it.start and (it.start-1)) or 0)
+      idx_map[key] = i
+    end
+    for _, it in ipairs(all) do
+      local key = (it.start0 or (it.start and (it.start-1)) or 0)
+      it._ordinal = idx_map[key]
+    end
+  end
   if empty_or_nil(all) then return end
   -- Process from bottom to top to keep indices stable while replacing lines
   for i = #all, 1, -1 do
@@ -386,8 +500,10 @@ local function update_all_tocs()
       local s0 = item.start0 or (item.start and (item.start-1)) or 0
       local line = vim.api.nvim_buf_get_lines(0, s0, s0+1, false)[1] or ''
       local fences = get_fences()
-      local candidates = { fences.start_text }
-      if fences.start_text ~= 'mtoc-start' then table.insert(candidates, 'mtoc-start') end
+      local candidates = vim.deepcopy(fences.start_list)
+      local seen_default = false
+      for _, t in ipairs(candidates) do if t == 'mtoc-start' then seen_default = true; break end end
+      if not seen_default then table.insert(candidates, 'mtoc-start') end
       local found = nil
       local used_tag = nil
       local min_b, max_b
@@ -442,21 +558,8 @@ local function update_all_tocs()
           toc_lines = toc.gen_toc_list_for_range(s_range, e_range)
           config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min2, saved_max2
         end
-        -- Relabel fence with a stable short hash derived from current section heading
-        local heading_line = vim.api.nvim_buf_get_lines(0, s_range, s_range+1, false)[1] or ''
-        local _, heading_name = string.match(heading_line, config.opts.headings.pattern)
-        heading_name = heading_name or heading_line
-        local new_hash
-        local ok, dig = pcall(vim.fn.sha256, heading_name)
-        if ok and type(dig) == 'string' then
-          new_hash = string.sub(dig, 1, 7)
-        else
-          -- fallback simple hash
-          local sum = 0
-          for i = 1, #heading_name do sum = (sum * 33 + string.byte(heading_name, i)) % 0xFFFFFFFF end
-          new_hash = string.format('%07x', sum)
-        end
-        label_to_use = new_hash
+        -- Relabel fence to stable label derived from fileName#index among fenced ToCs
+        label_to_use = build_stable_label_for_index(item._ordinal or 1)
         relabel = true
         dbg('auto_update: relabeling partial fence to frozen label '..label_to_use)
       end
@@ -472,11 +575,11 @@ local function update_all_tocs()
     end
     toc_lines = config.opts.toc_list.post_processor(toc_lines)
     local new_block = {}
-    table.insert(new_block, fmt_fence_start(fences.start_text, label_to_use, item.min_b, item.max_b))
+    table.insert(new_block, fmt_fence_start(fences.start_main, label_to_use, item.min_b, item.max_b))
     if not (toc_lines[1] == '' or #toc_lines == 0) then table.insert(new_block, '') end
     for _, l in ipairs(toc_lines) do table.insert(new_block, l) end
     if new_block[#new_block] ~= '' then table.insert(new_block, '') end
-    table.insert(new_block, fmt_fence_end(fences.end_text, label_to_use, item.min_b, item.max_b))
+    table.insert(new_block, fmt_fence_end(fences.end_main, label_to_use, item.min_b, item.max_b))
     -- Replace the existing fenced block
     local s0 = item.start0 or (item.start and (item.start-1)) or 0
     local e0 = item.end0 or item.end_ or s0
