@@ -30,6 +30,112 @@ for _, parser_type in ipairs(parsers) do
       package.loaded['mtoc/config'] = nil
       package.loaded['mtoc/toc'] = nil
     end)
+
+    it('includes enclosing heading when headings.before_toc=true (partial under cursor) with parser=' .. parser_type, function()
+      set_buf({
+        '# Title',
+        '',
+        '## Section',
+        '### A',
+        '### B',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          partial_under_cursor = true,
+          before_toc = true,
+          min_depth = nil,
+          max_depth = nil,
+        },
+        toc_list = { markers = {'*'} },
+      })
+      -- Put cursor on the section heading line
+      vim.api.nvim_win_set_cursor(0, {3, 0})
+      local toc = require('mtoc/toc')
+      local lines = toc.gen_toc_list_scoped()
+      local joined = table.concat(lines, '\n')
+      assert.is_truthy(joined:find('%[Section%]'))
+      assert.is_truthy(joined:find('%[A%]'))
+      assert.is_truthy(joined:find('%[B%]'))
+    end)
+
+    it('does not indent first-level items when before_toc=false (scoped) with parser=' .. parser_type, function()
+      set_buf({
+        '# Title',
+        '',
+        '## Section',
+        '### A',
+        '### B',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          partial_under_cursor = true,
+          before_toc = false,
+        },
+        toc_list = { markers = {'*'}, cycle_markers = false, indent_size = 2 },
+      })
+      -- Cursor on section heading
+      vim.api.nvim_win_set_cursor(0, {3, 0})
+      local toc = require('mtoc/toc')
+      local lines = toc.gen_toc_list_scoped()
+      assert.is_truthy(#lines > 0)
+      -- First item must not be indented (no leading spaces)
+      assert.is_nil(lines[1]:match('^%s'))
+      -- Should include child heading text
+      assert.is_truthy(table.concat(lines, '\n'):find('%[A%]'))
+    end)
+
+    it('does not indent first-level items when before_toc=false (label-scoped) with parser=' .. parser_type, function()
+      set_buf({
+        '# Title',
+        '',
+        '## Section',
+        '### A',
+        '### B',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          before_toc = false,
+        },
+        toc_list = { markers = {'*'}, cycle_markers = false, indent_size = 2 },
+      })
+      local toc = require('mtoc/toc')
+      -- Compute label for "Section" using same slugifier
+      local label = toc.link_formatters.gfm({}, 'Section')
+      local lines = toc.gen_toc_list_for_label(label)
+      assert.is_truthy(#lines > 0)
+      assert.is_nil(lines[1]:match('^%s'))
+      assert.is_truthy(table.concat(lines, '\n'):find('%[A%]'))
+    end)
+
+    it('excludes enclosing heading when headings.before_toc=false (partial under cursor) with parser=' .. parser_type, function()
+      set_buf({
+        '# Title',
+        '',
+        '## Section',
+        '### A',
+        '### B',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          partial_under_cursor = true,
+          before_toc = false,
+          min_depth = nil,
+          max_depth = nil,
+        },
+        toc_list = { markers = {'*'} },
+      })
+      vim.api.nvim_win_set_cursor(0, {3, 0})
+      local toc = require('mtoc/toc')
+      local lines = toc.gen_toc_list_scoped()
+      local joined = table.concat(lines, '\n')
+      assert.is_nil(joined:find('%[Section%]'))
+      assert.is_truthy(joined:find('%[A%]'))
+      assert.is_truthy(joined:find('%[B%]'))
+    end)
   
   it('recognizes multiple fence tags and rewrites using main tag with parser=' .. parser_type, function()
     set_buf({
