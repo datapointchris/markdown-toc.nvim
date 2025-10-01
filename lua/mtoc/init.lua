@@ -574,8 +574,22 @@ local function update_all_tocs()
         dbg('auto_update: relabeling partial fence to frozen label '..label_to_use)
       end
     else
-      dbg('auto_update: regenerating full ToC')
+      -- Unlabeled fence: treat as section-scoped ToC based on the fence location,
+      -- so that headings.before_toc semantics are respected during updates.
+      local s0 = item.start0 or (item.start and (item.start-1)) or 0
+      local cur_line = s0 + 1
+      local s_range, e_range = toc.find_current_section_range(cur_line)
+      dbg(string.format('auto_update: unlabeled fence; regenerating by range [%d,%d)', s_range, e_range))
       do
+        local saved_min, saved_max = config.opts.headings.min_depth, config.opts.headings.max_depth
+        if item.min_b ~= nil then config.opts.headings.min_depth = item.min_b end
+        if item.max_b ~= nil then config.opts.headings.max_depth = item.max_b end
+        toc_lines = toc.gen_toc_list_for_range(s_range, e_range)
+        config.opts.headings.min_depth, config.opts.headings.max_depth = saved_min, saved_max
+      end
+      -- If nothing found in range, fall back to full ToC to avoid wiping content
+      if utils.empty_or_nil(toc_lines) then
+        dbg('auto_update: range produced empty; falling back to full ToC')
         local saved_min, saved_max = config.opts.headings.min_depth, config.opts.headings.max_depth
         if item.min_b ~= nil then config.opts.headings.min_depth = item.min_b end
         if item.max_b ~= nil then config.opts.headings.max_depth = item.max_b end

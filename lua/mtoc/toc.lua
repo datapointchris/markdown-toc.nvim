@@ -84,7 +84,10 @@ function M.gen_toc_list_for_label(label)
   local lines = {}
   local all_heading_links = {}
   -- If before_toc is true, include the parent heading itself as the first item
-  local start_k = (config.opts.headings and config.opts.headings.before_toc) and target_idx or (target_idx+1)
+  local include_base = (config.opts.headings and config.opts.headings.before_toc) and true or false
+  local start_k = include_base and target_idx or (target_idx+1)
+  -- Normalization base: when excluding the base heading, normalize relative to base+1
+  local normalization_base = base_depth + (include_base and 0 or 1)
   for k = start_k, #headings do
     local h = headings[k]
     if h.row >= end_row then break end
@@ -96,7 +99,7 @@ function M.gen_toc_list_for_label(label)
       marker_index = (marker_index - 1) % #markers + 1
       local marker = markers[marker_index]
       local name = h.name:gsub('%[(.-)%]%(.-%)', '%1')
-      local depth = clamped - base_depth
+      local depth = clamped - normalization_base
       local link = M.link_formatters.gfm(all_heading_links, name)
       local fmt_info = { name = name, link = link, depth = depth, marker = marker, raw_line = '' }
       fmt_info.indent = (" "):rep(depth * indent_size)
@@ -881,12 +884,15 @@ function M.gen_toc_list_scoped()
       skip_base = false
     end
 
+    local normalization_base = nil
     for _, item in ipairs(collected) do
       local raw_depth = item.depth
       local name = item.name
       if not base_depth then
         base_depth = raw_depth
         prev_clamped_depth = raw_depth
+        -- Set normalization base relative to whether base heading is included
+        normalization_base = base_depth + (skip_base and 1 or 0)
         if skip_base then goto continue end
       end
       if not ((min_depth_cfg and raw_depth < min_depth_cfg) or (max_depth_cfg and raw_depth > max_depth_cfg)) then
@@ -899,7 +905,8 @@ function M.gen_toc_list_scoped()
         local marker = markers[marker_index]
         -- Strip embedded links in name
         name = name:gsub('%[(.-)%]%(.-%)', '%1')
-        local depth = clamped - base_depth
+        local nb = normalization_base or base_depth
+        local depth = clamped - nb
         local link = M.link_formatters.gfm(all_heading_links, name)
         local fmt_info = { name = name, link = link, depth = depth, marker = marker, raw_line = '' }
         fmt_info.indent = (" "):rep(depth * indent_size)
@@ -976,22 +983,27 @@ function M.gen_toc_list_for_range(s, e)
     skip_base = false
   end
 
+  local normalization_base = nil
   for _, item in ipairs(collected) do
     local raw_depth = item.depth
     local name = item.name
     if not base_depth then
       base_depth = raw_depth
       prev_clamped_depth = raw_depth
+      normalization_base = base_depth + (skip_base and 1 or 0)
       if skip_base then goto continue end
     end
     if not ((min_depth_cfg and raw_depth < min_depth_cfg) or (max_depth_cfg and raw_depth > max_depth_cfg)) then
       local clamped = raw_depth
-      if prev_clamped_depth and prev_clamped_depth + 1 < raw_depth then clamped = prev_clamped_depth + 1 end
+      if prev_clamped_depth and prev_clamped_depth + 1 < raw_depth then
+        clamped = prev_clamped_depth + 1
+      end
       prev_clamped_depth = clamped
       marker_index = (marker_index - 1) % #markers + 1
       local marker = markers[marker_index]
       name = name:gsub('%[(.-)%]%(.-%)', '%1')
-      local depth = clamped - base_depth
+      local nb = normalization_base or base_depth
+      local depth = clamped - nb
       local link = M.link_formatters.gfm(all_heading_links, name)
       local fmt_info = { name = name, link = link, depth = depth, marker = marker, raw_line = '' }
       fmt_info.indent = (" "):rep(depth * indent_size)
