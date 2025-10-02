@@ -131,7 +131,10 @@ local function insert_toc(opts)
   else
     -- Full ToC: optionally include headings before the insertion point in generation
     local gen_start = insert_at
-    if hcfg.before_toc then
+    -- If picker requested full-document, override to parse entire buffer
+    if opts.force_all then
+      gen_start = 0
+    elseif hcfg.before_toc then
       gen_start = 0
     end
     do
@@ -390,13 +393,17 @@ local function pick_insert_telescope()
         local s_range, e_range = toc.find_current_section_range(src_cur_line)
         lines = toc.gen_toc_list_for_range(s_range, e_range)
       else
-        local gen_start = src_cur_line
-        if hcfg.before_toc then gen_start = 0 end
-        lines = toc.gen_toc_list(gen_start)
+        -- Global presets: preview must be independent of cursor; parse whole buffer
+        lines = toc.gen_toc_list(0)
       end
       hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
     end)
-    if not lines or #lines == 0 then lines = { '(empty)' } end
+    -- Apply same post-processing as insertion so preview matches inserted content
+    if lines and #lines > 0 then
+      lines = config.opts.toc_list.post_processor(lines)
+    else
+      lines = { '(empty)' }
+    end
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     pcall(vim.api.nvim_buf_set_option, bufnr, 'filetype', 'markdown')
   end
@@ -424,7 +431,14 @@ local function pick_insert_telescope()
       actions.select_default:replace(function()
         local selection = action_state.get_selected_entry().value
         actions.close(prompt_bufnr)
-        insert_toc({ min_depth = selection.min, max_depth = selection.max, force_fence = true, force_section = (selection.scope == 'section') })
+        insert_toc({
+          min_depth = selection.min,
+          max_depth = selection.max,
+          force_fence = true,
+          force_section = (selection.scope == 'section'),
+          -- Force full-document generation for global picks, independent of cursor
+          force_all = (selection.scope == 'global'),
+        })
       end)
       return true
     end,
