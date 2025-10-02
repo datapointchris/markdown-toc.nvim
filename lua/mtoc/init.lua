@@ -324,6 +324,28 @@ local function pick_insert_telescope()
   do
     -- Always include a Global preset (full document)
     table.insert(presets, { name = 'Global ToC (all headings)', scope = 'global', min = nil, max = nil })
+    -- Compute maximum heading depth available across the entire buffer
+    local max_depth_global = 1
+    vim.api.nvim_buf_call(src_buf, function()
+      local is_inside_code_block = false
+      for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, 0, -1, false)) do
+        if l:find('^```') then
+          is_inside_code_block = not is_inside_code_block
+        elseif not is_inside_code_block then
+          local hpfx = l:match(config.opts.headings.pattern)
+          if hpfx and #hpfx <= 6 then
+            if #hpfx > max_depth_global then max_depth_global = #hpfx end
+          end
+        end
+      end
+    end)
+    -- Add incremental global presets starting from H1
+    local g_min = 1
+    local g_end = math.min(max_depth_global, 6)
+    for lvl = g_min, g_end do
+      local label = (lvl == g_min) and string.format('Global: H%d only', lvl) or string.format('Global: H%d..H%d', g_min, lvl)
+      table.insert(presets, { name = label, scope = 'global', min = g_min, max = lvl })
+    end
     -- Determine section base depth for incremental presets using captured cursor
     local base_depth = 1
     local max_depth_found = 1
