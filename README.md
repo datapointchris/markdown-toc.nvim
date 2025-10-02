@@ -13,8 +13,6 @@ Almost fully replaces vim-markdown-toc, written in 100% lua.
   another link format a better configuration structure for this is
   [planned](#todo), but for now you can set your own [formatter
   function](#advanced-examples).
-- You can disable fences but keep the updating feature by manually selecting
-  your table of contents in visual mode, then running `:Mtoc`
 
 <!-- panvimdoc-ignore-start -->
 
@@ -24,16 +22,18 @@ Dog-fooding ;)
 
 <!-- mtoc-start -->
 
-1. [Install](#install)
-1. [Setup](#setup)
-   1. [Common configuration options](#common-configuration-options)
-   1. [Fences](#fences)
-   1. [Examples](#examples)
-1. [Commands](#commands)
-1. [Full Configuration](#full-configuration)
-   1. [Advanced Examples](#advanced-examples)
-   1. [Project-local configuration](#project-local-configuration)
-1. [TODO](#todo)
+* [Install](#install)
+* [Setup](#setup)
+  * [Common configuration options](#common-configuration-options)
+  * [Fences](#fences)
+    * [Recording heading-level bounds in fences](#recording-heading-level-bounds-in-fences)
+    * [Multiple fence tags](#multiple-fence-tags)
+  * [Text Objects](#text-objects)
+  * [Examples](#examples)
+* [Full Configuration](#full-configuration)
+  * [Advanced Examples](#advanced-examples)
+  * [Project-local configuration](#project-local-configuration)
+* [TODO](#todo)
 
 <!-- mtoc-end -->
 <!-- panvimdoc-ignore-end -->
@@ -50,6 +50,11 @@ Example for Lazy.nvim:
   "hedyhli/markdown-toc.nvim",
   ft = "markdown",  -- Lazy load on markdown filetype
   cmd = { "Mtoc" }, -- Or, lazy load on "Mtoc" command
+  dependencies = {
+    "nvim-treesitter/nvim-treesitter", -- optional, for efficient parsing
+    "nvim-telescope/telescope.nvim",   -- optional, for picker UI
+  },
+  build = ":TSInstall markdown", -- if you want the markdown TreeSitter parser
   opts = {
     -- Your configuration here (optional)
   },
@@ -64,6 +69,12 @@ commands are prefixed with `mtoc` rather than `markdown-toc`.
 
 To be explicit or if you run into problems, you can set `main = "mtoc"` in the
 plugin spec for Lazy.nvim.
+
+The dependencies are optional but offer interesting features:
+- [Neovim's Tree-Sitter](https://github.com/nvim-treesitter/nvim-treesitter)
+  abstraction layer is used to efficiently parse Markdown files and find headings.
+  It supports CommonMark and Github flavoured markdown with a few extensions.
+- [Telescope]() as a UI helpder for picker/preview tasks
 
 ## Setup
 
@@ -86,7 +97,7 @@ table in the `opts` key if you're using Lazy.nvim.
 ```lua
 {
   headings = {
-    -- Include headings before the ToC (or current line for `:Mtoc insert`).
+    -- Include heading before the ToC into the ToC
     before_toc = false,
     -- Parser to use for heading detection: 'auto' | 'treesitter' | 'regex'
     parser = 'auto',
@@ -104,12 +115,16 @@ table in the `opts` key if you're using Lazy.nvim.
   },
 
   -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
-  -- Fences are needed for the update/remove commands; otherwise you can visually
-  -- select a range and run :Mtoc update.
+  -- Fences are needed for the update/remove commands; otherwise you must update manually
   fences = {
     enabled = true,
-    -- These texts are wrapped within "<!-- % -->"
+    -- These texts are wrapped within "<!-- % -->", and often affixed with a label
+    -- identifying the ToC if it's a partial one
+    -- Both options can be a list of strings supporting older tags
+    -- Then, the first one is considered the main active tag
     start_text = "mtoc-start",
+    -- or, to support an old one too set:
+    -- start_text = {"mtoc-start", "old-mtoc-start"}
     end_text   = "mtoc-end",
   },
 
@@ -120,7 +135,7 @@ table in the `opts` key if you're using Lazy.nvim.
     events = { "BufWritePre" },
     -- Use a list of patterns; brace expansion is not supported by nvim autocmds.
     pattern = { "*.md", "*.mdown", "*.mkd", "*.mkdn", "*.markdown", "*.mdwn" },
-    -- When true, updates run with keepjumps/lockmarks to avoid polluting state
+    -- When true, updates run with keepjumps/lockmarks to avoid polluting nvim state
     suppress_pollution = true,
   },
 
@@ -148,62 +163,73 @@ table in the `opts` key if you're using Lazy.nvim.
 }
 ```
 
-These are the most common options. For all fields including formatters and
-auto-update internals, see [Full Configuration](#full-configuration).
-
 ### Fences
 
-Note that whenever you change your fence text, you must either edit all existing
-fences by hand if you wish to retain auto-update feature, or you can remove +
-insert, or visual select the whole range including fence, and use `:'<,'>Mtoc u!`.
+Fences are used to detect existing ToCs for auto-updates and text-object manipulation.
 
-See [commands](#commands).
+#### Recording heading-level bounds in fences
+
+Fences can optionally include the heading-level bounds used to generate that ToC. This makes future updates honor the same levels automatically.
+
+Format:
+
+```
+<!-- mtoc-start:<label>[:<min>[:<max>]] -->
+...
+<!-- mtoc-end:<label>[:<min>[:<max>]] -->
+```
+
+- `label` is a short, stable label used to associate the fence with the section (auto-derived for partial ToCs if not provided).
+- `min`/`max` are optional integers indicating the minimum and maximum heading levels included (H1=1..H6=6). When present, updates will regenerate the ToC with these bounds.
+
+Notes:
+- `:Mtoc pick` always inserts fenced ToCs and records the selected bounds.
+- Updates preserve the label and any `min`/`max` metadata even if you later change headings.
+
+#### Multiple fence tags
+
+You can configure more than one fence tag for compatibility with other tools and/or previous configuration. The first tag is used as a "main avtive tag" when writing; all tags are supported when detecting/updating ToCs.
+
+Example:
+
+```lua
+require('mtoc').setup({
+  fences = {
+    enabled = true,
+    start_text = { 'mtoc-start', 'toc-start' },
+    end_text   = { 'mtoc-end',   'toc-end'   },
+  },
+})
+```
+
+- Writes will use `mtoc-start`/`mtoc-end` (first entries).
+- Updates/removes will recognize any of `mtoc-start|toc-start` and `mtoc-end|toc-end`.
+
+### Text Objects
+
+To make operating on a ToC more convenient, add these expr-mappings to your Neovim configuration:
+
+```lua
+-- Outer ToC (includes fences)
+vim.keymap.set({'x','o'}, 'aT',
+    function() return require('mtoc')._select_toc_textobj(false) end,
+    { expr = true, desc = 'ToC text object' })
+
+-- Inner ToC (excludes fences)
+vim.keymap.set({'x','o'}, 'iT',
+    function() return require('mtoc')._select_toc_textobj(true) end,
+    { expr = true, desc = 'ToC text object' })
+```
+
+The preferred option to remove a single ToC if text objects are set up is:
+`daT` keystrokes from normal mode.
+
+`:Mtoc remove` can also do this, and will remove the first matched ToC if there is no enclosing one.
+
 
 ### Examples
 
-Disable fences (update/remove ToC will not work, unless you run update with
-manually selected ToC range):
-```lua
-fences = false,
-```
-
-Cycle markers:
-```lua
-toc_list = {
-  markers = {'*', '+', '-'},
-  cycle_markers = true,
-  numbered = false,
-}
-```
-
-Use numbered list for TOC
-```lua
-toc_list = {
-  numbered = true,
-},
-```
-
-Cycling of markers produces a ToC list like this:
-```md
-* [First heading](#first-heading)
-  + [Sub heading](#sub-heading)
-  + [Sub heading 2](#sub-heading-2)
-    - [Sub-sub heading](#sub-sub-heading)
-    - [Sub-sub heading 2](#sub-sub-heading-2)
-      * [Sub-sub-sub heading](#sub-sub-sub-heading)
-* [Second heading](#second-heading)
-  + [Second sub heading](#second-sub-heading)
-```
-
-To customize the indent size please see [full
-configurations](#full-configuration).
-
-[Advanced configuration patterns](#advanced-examples)
-
-
-## Commands
-
-Subcommands do not have to be typed in full so long as they are not ambiguous.
+Most subcommands do not have to be typed in full so long as they are not ambiguous.
 These shortcuts are shown in `[square brackets]` below.
 
 - `:Mtoc`
@@ -215,9 +241,7 @@ These shortcuts are shown in `[square brackets]` below.
 
   Insert ToC at cursor position.
 
-  If there are no headings found:
-  - If fences are enabled, fences are inserted without any content inside
-  - Otherwise, an error is printed
+  If there are no headings found and fences are enabled, fences are inserted without any content inside
 
 - `:Mtoc u[pdate]`
 
@@ -232,6 +256,25 @@ These shortcuts are shown in `[square brackets]` below.
   It may print errors when no fences are found, start-end fences are not
   matched, or end found before start.
 
+- `:Mtoc p[ick]`
+
+  Opens a Telescope picker to preview and insert a ToC with chosen heading-level bounds.
+
+  Presets:
+  - Global ToC (all headings): full-document ToC honoring `headings.before_toc` option.
+  - Section ToC (all headings): ToC scoped to the section containing the cursor.
+  - Section ToC with incremental max levels: offers a small set of options starting from
+    the level right under the section heading up to the deepest level actually present
+    in that section.
+
+  Behavior:
+  - Preview mirrors exactly what will be inserted at the current cursor position (partial vs full).
+  - Insertion always wraps the ToC in fences and records any selected `min`/`max` bounds in the fences.
+  - If Telescope is not available, this command is a no-op.
+
+- `Mtoc debug`
+  Inserts a debug listing of detected headings at cursor position using current configuration,
+  equivalent of non-fenced ToC
 
 ## Full Configuration
 
@@ -270,8 +313,8 @@ These shortcuts are shown in `[square brackets]` below.
 
   fences = {
     enabled = true,
-    start_text = "mtoc-start",
-    end_text   = "mtoc-end",
+    start_text = "mtoc-start", -- or a list of strings, first one is the main tag
+    end_text   = "mtoc-end", -- or a list of strings, first one is the main tag
   },
 
   auto_update = {
