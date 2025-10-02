@@ -262,6 +262,9 @@ These shortcuts are shown in `[square brackets]` below.
 
   Presets:
   - Global ToC (all headings): full-document ToC honoring `headings.before_toc` option.
+  - Global incremental presets derived from the file:
+    - Global: H1 only
+    - Global: H1..Hn (up to the deepest heading present, capped at H6)
   - Section ToC (all headings): ToC scoped to the section containing the cursor.
   - Section ToC with incremental max levels: offers a small set of options starting from
     the level right under the section heading up to the deepest level actually present
