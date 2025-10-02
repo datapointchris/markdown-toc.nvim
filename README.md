@@ -8,7 +8,7 @@ Generate and update table of contents list (with links) for markdown.
 
 Almost fully replaces vim-markdown-toc, written in 100% lua.
 
-- Supports setext style headings (`======` and `------`).
+- Supports setext style headings (`======` and `------`), and Github-style headings (only when the parser is set to `treesitter`)
 - Supports GitHub Flavoured Markdown links by default. If you want to use
   another link format a better configuration structure for this is
   [planned](#todo), but for now you can set your own [formatter
