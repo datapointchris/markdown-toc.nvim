@@ -442,6 +442,52 @@ for _, parser_type in ipairs(parsers) do
       assert.is_true(joined:find('%[H1%]') == nil)
       assert.is_true(joined:find('%[H4%]') == nil)
     end)
+
+    it('global incremental: includes H1 only when max=1 with parser=' .. parser_type, function()
+      set_buf({
+        '# H1',
+        '## H2',
+        '### H3',
+        '#### H4',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          min_depth = 1,
+          max_depth = 1,
+        },
+        toc_list = { markers = {'*'} },
+      })
+      local lines = get_toc_full()
+      local joined = table.concat(lines, '\n')
+      assert.is_true(joined:find('%[H1%]') ~= nil)
+      assert.is_true(joined:find('%[H2%]') == nil)
+      assert.is_true(joined:find('%[H3%]') == nil)
+      assert.is_true(joined:find('%[H4%]') == nil)
+    end)
+
+    it('global incremental: includes H1..H3 when max=3 with parser=' .. parser_type, function()
+      set_buf({
+        '# H1',
+        '## H2',
+        '### H3',
+        '#### H4',
+      })
+      setup_config({
+        headings = {
+          parser = parser_type,
+          min_depth = 1,
+          max_depth = 3,
+        },
+        toc_list = { markers = {'*'} },
+      })
+      local lines = get_toc_full()
+      local joined = table.concat(lines, '\n')
+      assert.is_true(joined:find('%[H1%]') ~= nil)
+      assert.is_true(joined:find('%[H2%]') ~= nil)
+      assert.is_true(joined:find('%[H3%]') ~= nil)
+      assert.is_true(joined:find('%[H4%]') == nil)
+    end)
   
     it('generates partial TOC under cursor when enabled (skip base heading) with parser=' .. parser_type, function()
       set_buf({
