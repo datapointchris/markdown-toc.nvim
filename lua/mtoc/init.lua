@@ -166,11 +166,11 @@ local function insert_toc(opts)
       for _ = 1, pad do
         table.insert(lines, 1, '')
       end
-      table.insert(lines, 1, fmt_fence_start(fences.start_text))
+      table.insert(lines, 1, fmt_fence_start(fences.start_main))
       for _ = 1, pad do
         table.insert(lines, '')
       end
-      table.insert(lines, fmt_fence_end(fences.end_text))
+      table.insert(lines, fmt_fence_end(fences.end_main))
     end
   end
 
