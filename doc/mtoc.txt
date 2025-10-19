@@ -1,22 +1,19 @@
-*mtoc.txt*            For NVIM v0.5.0
+*mtoc.txt*            For NVIM v0.11.4
 
 ==============================================================================
 Table of Contents                                     *mtoc-table-of-contents*
 
   - Install                                                     |mtoc-install|
   - Setup                                                         |mtoc-setup|
-  - Commands                                                   |mtoc-commands|
   - Full Configuration                               |mtoc-full-configuration|
 Generate and update table of contents list (with links) for markdown.
 
 Almost fully replaces vim-markdown-toc, written in 100% lua.
 
-- Supports setext style headings (`======` and `------`).
+- Supports setext style headings (`======` and `------`), and Github-style headings (only when the parser is set to `treesitter`)
 - Supports GitHub Flavoured Markdown links by default. If you want to use
     another link format a better configuration structure for this is
     |mtoc-planned|, but for now you can set your own |mtoc-formatter-function|.
-- You can disable fences but keep the updating feature by manually selecting
-    your table of contents in visual mode, then running `:Mtoc`
 
 
 INSTALL                                                         *mtoc-install*
@@ -31,6 +28,12 @@ Example for Lazy.nvim:
       "hedyhli/markdown-toc.nvim",
       ft = "markdown",  -- Lazy load on markdown filetype
       cmd = { "Mtoc" }, -- Or, lazy load on "Mtoc" command
+      dependencies = {
+        "nvim-treesitter/nvim-treesitter", -- optional, for efficient parsing
+        "folke/snacks.nvim",               -- optional, for picker UI (preferred)
+        "nvim-telescope/telescope.nvim",   -- optional, for picker UI (fallback)
+      },
+      build = ":TSInstall markdown", -- if you want the markdown TreeSitter parser
       opts = {
         -- Your configuration here (optional)
       },
@@ -45,6 +48,15 @@ commands are prefixed with `mtoc` rather than `markdown-toc`.
 
 To be explicit or if you run into problems, you can set `main = "mtoc"` in the
 plugin spec for Lazy.nvim.
+
+The dependencies are optional but offer interesting features: - Neovim’s
+Tree-Sitter <https://github.com/nvim-treesitter/nvim-treesitter> abstraction
+layer is used to efficiently parse Markdown files and find headings. It
+supports CommonMark and Github flavoured markdown with a few extensions. -
+Snacks.nvim <https://github.com/folke/snacks.nvim> as the preferred UI helper
+for picker/preview tasks - Telescope
+<https://github.com/nvim-telescope/telescope.nvim> as a fallback UI helper for
+picker/preview tasks
 
 
 SETUP                                                             *mtoc-setup*
@@ -68,176 +80,210 @@ table in the `opts` key if you’re using Lazy.nvim.
 >lua
     {
       headings = {
-        -- Include headings before the ToC (or current line for `:Mtoc insert`).
-        -- Setting to true will include headings that are defined before the ToC
-        -- position to be included in the ToC.
+        -- Include heading before the ToC into the ToC
         before_toc = false,
+        -- Parser to use for heading detection: 'auto' | 'treesitter' | 'regex'
+        parser = 'auto',
+        -- Generate a partial ToC for the section under the cursor
+        partial_under_cursor = false,
+        -- Start including headings from this depth (1=H1). Allows partial ToCs.
+        min_depth = nil,
+        -- Stop including headings up to this depth (inclusive)
+        max_depth = nil,
+        -- Either list of lua patterns to exclude, or a function(title)->boolean
+        exclude = {},
+        -- Pattern to detect headings for the regex parser
+        -- 1st capture = hashes (###), 2nd capture = title
+        pattern = "^(#+)%s+(.+)$",
       },
     
       -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
-      -- Fences are needed for the update/remove commands, otherwise you can
-      -- manually select ToC and run update.
+      -- Fences are needed for the update/remove commands; otherwise you must update manually
       fences = {
         enabled = true,
-        -- These fence texts are wrapped within "<!-- % -->", where the '%' is
-        -- substituted with the text.
+        -- These texts are wrapped within "<!-- % -->", and often affixed with a label
+        -- identifying the ToC if it's a partial one
+        -- Both options can be a list of strings supporting older tags
+        -- Then, the first one is considered the main active tag
         start_text = "mtoc-start",
-        end_text = "mtoc-end"
-        -- An empty line is inserted on top and below the ToC list before the being
-        -- wrapped with the fence texts, same as vim-markdown-toc.
+        -- or, to support an old one too set:
+        -- start_text = {"mtoc-start", "old-mtoc-start"}
+        end_text   = "mtoc-end",
       },
     
-      -- Enable auto-update of the ToC (if fences found) on buffer save
-      auto_update = true,
+      -- Auto-update of the ToC on save (only if fences found).
+      -- You can set auto_update=true (shortcut) or customize the table below.
+      auto_update = {
+        enabled = true,
+        events = { "BufWritePre" },
+        -- Use a list of patterns; brace expansion is not supported by nvim autocmds.
+        pattern = { "*.md", "*.mdown", "*.mkd", "*.mkdn", "*.markdown", "*.mdwn" },
+        -- When true, updates run with keepjumps/lockmarks to avoid polluting nvim state
+        suppress_pollution = true,
+      },
     
       toc_list = {
         -- string or list of strings (for cycling)
-        -- If cycle_markers = false and markers is a list, only the first is used.
-        -- You can set to '1.' to use a automatically numbered list for ToC (if
-        -- your markdown render supports it).
-        markers = '*',
+        -- If cycle_markers=false and markers is a list, only the first is used.
+        -- You can set to '1.' to use an automatically numbered list for ToC (if supported).
+        markers = { '*' },
         cycle_markers = false,
-        -- Example config for cycling markers:
-        ----- markers = {'*', '+', '-'},
-        ----- cycle_markers = true,
+        numbered = false,
+        -- Integer or function returning integer (e.g. from shiftwidth)
+        indent_size = 2,
+        -- Format string for each item (fields: name, link, marker, indent, depth)
+        item_format_string = "${indent}${marker} [${name}](#${link})",
+        -- Formatter for a single item. Defaults to simple template replacement.
+        item_formatter = function(item, fmtstr)
+          local s = fmtstr:gsub([[${(%w-)}]], function(key)
+            return item[key] or ('${'..key..'}')
+          end)
+          return s
+        end,
+        -- Post-process the array of lines before insertion
+        post_processor = function(lines) return lines end,
       },
     }
 <
-
-These are the common config options. For a full list including advanced
-customizations including indent size and list item format, please see
-|mtoc-full-configuration|.
 
 
 FENCES ~
 
-Note that whenever you change your fence text, you must either edit all
-existing fences by hand if you wish to retain auto-update feature, or you can
-remove + insert, or visual select the whole range including fence, and use
-`:'<,'>Mtoc u!`.
+Fences are used to detect existing ToCs for auto-updates and text-object
+manipulation.
 
-See |mtoc-commands|.
+
+RECORDING HEADING-LEVEL BOUNDS IN FENCES
+
+Fences can optionally include the heading-level bounds used to generate that
+ToC. This makes future updates honor the same levels automatically.
+
+Format:
+
+>
+    <!-- mtoc-start:<label>[:<min>[:<max>]] -->
+    ...
+    <!-- mtoc-end:<label>[:<min>[:<max>]] -->
+<
+
+- `label` is a short, stable label used to associate the fence with the section (auto-derived for partial ToCs if not provided).
+- `min`/`max` are optional integers indicating the minimum and maximum heading levels included (H1=1..H6=6). When present, updates will regenerate the ToC with these bounds.
+
+Notes: - `:Mtoc pick` always inserts fenced ToCs and records the selected
+bounds. - Updates preserve the label and any `min`/`max` metadata even if you
+later change headings.
+
+
+MULTIPLE FENCE TAGS
+
+You can configure more than one fence tag for compatibility with other tools
+and/or previous configuration. The first tag is used as a "main avtive tag"
+when writing; all tags are supported when detecting/updating ToCs.
+
+Example:
+
+>lua
+    require('mtoc').setup({
+      fences = {
+        enabled = true,
+        start_text = { 'mtoc-start', 'toc-start' },
+        end_text   = { 'mtoc-end',   'toc-end'   },
+      },
+    })
+<
+
+- Writes will use `mtoc-start`/`mtoc-end` (first entries).
+- Updates/removes will recognize any of `mtoc-start|toc-start` and `mtoc-end|toc-end`.
+
+
+TEXT OBJECTS ~
+
+To make operating on a ToC more convenient, add these expr-mappings to your
+Neovim configuration:
+
+>lua
+    -- Outer ToC (includes fences)
+    vim.keymap.set({'x','o'}, 'aT',
+        function() return require('mtoc')._select_toc_textobj(false) end,
+        { expr = true, desc = 'ToC text object' })
+    
+    -- Inner ToC (excludes fences)
+    vim.keymap.set({'x','o'}, 'iT',
+        function() return require('mtoc')._select_toc_textobj(true) end,
+        { expr = true, desc = 'ToC text object' })
+<
+
+The preferred option to remove a single ToC if text objects are set up is:
+`daT` keystrokes from normal mode.
+
+`:Mtoc remove` can also do this, and will remove the first matched ToC if there
+is no enclosing one.
 
 
 EXAMPLES ~
 
-Disable fences (update/remove ToC will not work, unless you run update with
-manually selected ToC range):
+Most subcommands do not have to be typed in full so long as they are not
+ambiguous. These shortcuts are shown in `[square brackets]` below.
 
->lua
-    fences = false,
-<
-
-Cycle markers:
-
->lua
-    toc_list = {
-      markers = {'*', '+', '-'},
-      cycle_markers = true,
-    }
-<
-
-Use numbered list for TOC
-
->lua
-    toc_list = {
-      markers = '1.',
-    },
-<
-
-Cycling of markers produces a ToC list like this:
-
->md
-    * [First heading](#first-heading)
-      + [Sub heading](#sub-heading)
-      + [Sub heading 2](#sub-heading-2)
-        - [Sub-sub heading](#sub-sub-heading)
-        - [Sub-sub heading 2](#sub-sub-heading-2)
-          * [Sub-sub-sub heading](#sub-sub-sub-heading)
-    * [Second heading](#second-heading)
-      + [Second sub heading](#second-sub-heading)
-<
-
-To customize the indent size please see |mtoc-full-configurations|.
-
-|mtoc-advanced-configuration-patterns|
-
-
-COMMANDS                                                       *mtoc-commands*
-
-Subcommands do not have to be typed in full so long as they are not ambiguous.
-These shortcuts are shown in `[square brackets]` below.
-
-- `:[range]Mtoc[!]`
-    If range not provided, update ToC if fences are found. If not, insert ToC at
-    cursor position.
-    If range provided, replace the range with newly generated ToC. If fences are
-    enabled and bang provided, also inserts fences.
+- `:Mtoc`
+    Update all fenced ToCs in the current buffer. If no fenced ToCs are present,
+    this is a no-op. Use `:Mtoc insert` to insert a ToC.
 - `:Mtoc i[nsert]`
     Insert ToC at cursor position.
-    If there are no headings found:
-    - If fences are enabled, fences are inserted without any content inside
-    - Otherwise, an error is printed
-- `:[range]Mtoc u[pdate][!]`
-    If range not provided, update ToC if fences are found.
-    If range provided, replace the range with newly generated ToC. If fences are
-    enabled and bang provided, also inserts fences.
-    It may print errors when no fences are found, start-end fences are not matched,
-    or end found before start.
+    If there are no headings found and fences are enabled, fences are inserted
+    without any content inside
+- `:Mtoc u[pdate]`
+    Update all fenced ToCs in the current buffer (same as `:Mtoc`).
 - `:Mtoc r[emove]`
-    Remove ToC if fences are found.
+    Removes the ToC fenced block that encloses the cursor. If no fenced block
+    encloses the cursor, it falls back to removing the first matching pair of
+    fences.
     It may print errors when no fences are found, start-end fences are not matched,
     or end found before start.
+- `:Mtoc p[ick]`
+    Opens a picker UI to preview and insert a ToC with chosen heading-level bounds.
+    By default, uses Snacks.picker if available, otherwise falls back to Telescope.
+    You can configure the preferred picker via the `picker.preferred` option.
+    Presets:
+    - Global ToC (all headings): full-document ToC honoring `headings.before_toc` option.
+    - Global incremental presets derived from the file:
+        - Global: H1 only
+        - Global: H1..Hn (up to the deepest heading present, capped at H6)
+    - Section ToC (all headings): ToC scoped to the section containing the cursor.
+    - Section ToC with incremental max levels: offers a small set of options starting from
+        the level right under the section heading up to the deepest level actually present
+        in that section.
+    Behavior:
+    - Preview mirrors exactly what will be inserted at the current cursor position (partial vs full).
+    - Insertion always wraps the ToC in fences and records any selected `min`/`max` bounds in the fences.
+    - If neither Snacks.picker nor Telescope is available, a warning will be shown.
+- `Mtoc debug` Inserts a debug listing of detected headings at cursor position
+    using current configuration, equivalent of non-fenced ToC
 
 
 FULL CONFIGURATION                                   *mtoc-full-configuration*
 
 >lua
     {
-      -- Config relating to fetching of headings to be included in ToC
       headings = {
-        -- Include headings before the ToC (or current line for `:Mtoc insert`)
         before_toc = false,
-        -- Either list of lua patterns (regex),
-        -- or a function that takes a heading title and returns boolean (true means
-        -- to EXCLUDE heading).
+        parser = 'auto',
+        partial_under_cursor = false,
+        min_depth = nil,
+        max_depth = nil,
         exclude = {},
-        -- The first capture is for heading level ('###') and second is for the heading
-        -- title.
         pattern = "^(#+)%s+(.+)$",
       },
     
-      -- Config relating to the style and format of the ToC
       toc_list = {
-        -- string or list of strings (for cycling)
-        -- If cycle_markers = false and markers is a list, only the first is used.
-        -- You can set to '1.' to use a automatically numbered list for ToC (if
-        -- your markdown render supports it).
-        markers = '*',
+        numbered = false,
+        markers = { '*' },
         cycle_markers = false,
-        -- Example config for cycling markers:
-        ----- markers = {'*', '+', '-'},
-        ----- cycle_markers = true,
-    
-        -- Integer or a function that returns an integer.
-        -- If function, it is called every time the ToC is regenerated. This allows the use
-        -- of retrieving buffer-local settings like shiftwidth.
         indent_size = 2,
-    
-        -- Remove the ${indent} below, or set indent_size=0 to have the whole ToC
-        -- be a flattened list.
         item_format_string = "${indent}${marker} [${name}](#${link})",
-    
-        ---Formatter for a single ToC list item.
-        -- `item_info` has fields `name`, `link`, `marker`, `indent`, To change the
-        -- format of each heading item but keep the same field substitution syntax,
-        -- simply change `item_format_string`.
-        ---@param item_info table Information for current heading item.
-        ---@param fmtstr string from `item_format_string` config
-        ---@return string formatted_item
-        item_formatter = function(item_info, fmtstr)
+        item_formatter = function(item, fmtstr)
           local s = fmtstr:gsub([[${(%w-)}]], function(key)
-            return item_info[key] or ('${'..key..'}')
+            return item[key] or ('${'..key..'}')
           end)
           return s
         end,
@@ -250,28 +296,25 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         padding_lines = 1,
       },
     
-      -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
-      -- Fences are needed for the update/remove commands.
       fences = {
         enabled = true,
-        -- These fence texts are wrapped within "<!-- % -->", where the '%' is
-        -- substituted with the text.
-        start_text = "mtoc start",
-        end_text = "mtoc end"
-        -- An empty line is inserted on top and below the ToC list before the being
-        -- wrapped with the fence texts, same as vim-markdown-toc.
+        start_text = "mtoc-start", -- or a list of strings, first one is the main tag
+        end_text   = "mtoc-end", -- or a list of strings, first one is the main tag
       },
     
-      -- Set auto_update=true to use the following defaults.
-      -- Set to false to disable completely.
-      -- Fields events and pattern are used unprocessed for creating autocmds.
       auto_update = {
         enabled = true,
-        -- This allows the ToC to be refreshed silently on save for any markdown file.
-        -- The refresh operation uses `Mtoc update` and does NOT create the ToC if
-        -- it does not exist.
         events = { "BufWritePre" },
-        pattern = "*.{md,mdown,mkd,mkdn,markdown,mdwn}",
+        pattern = { "*.md", "*.mdown", "*.mkd", "*.mkdn", "*.markdown", "*.mdwn" },
+        suppress_pollution = true,
+      },
+    
+      picker = {
+        -- Preferred picker for `:Mtoc pick` command
+        -- 'auto': Try Snacks.picker first, fallback to Telescope (default)
+        -- 'snacks': Use Snacks.picker, fallback to Telescope
+        -- 'telescope': Use Telescope, fallback to Snacks.picker
+        preferred = 'auto',
       },
     }
 <
@@ -405,6 +448,7 @@ contents:
     if ok then
       mtoc.update_config({
         -- new opts to override
+        headings = { parser = 'regex', partial_under_cursor = true, min_depth = 3 },
       })
     end
 <
