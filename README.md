@@ -52,7 +52,8 @@ Example for Lazy.nvim:
   cmd = { "Mtoc" }, -- Or, lazy load on "Mtoc" command
   dependencies = {
     "nvim-treesitter/nvim-treesitter", -- optional, for efficient parsing
-    "nvim-telescope/telescope.nvim",   -- optional, for picker UI
+    "folke/snacks.nvim",               -- optional, for picker UI (preferred)
+    "nvim-telescope/telescope.nvim",   -- optional, for picker UI (fallback)
   },
   build = ":TSInstall markdown", -- if you want the markdown TreeSitter parser
   opts = {
@@ -74,7 +75,8 @@ The dependencies are optional but offer interesting features:
 - [Neovim's Tree-Sitter](https://github.com/nvim-treesitter/nvim-treesitter)
   abstraction layer is used to efficiently parse Markdown files and find headings.
   It supports CommonMark and Github flavoured markdown with a few extensions.
-- [Telescope]() as a UI helpder for picker/preview tasks
+- [Snacks.nvim](https://github.com/folke/snacks.nvim) as the preferred UI helper for picker/preview tasks
+- [Telescope](https://github.com/nvim-telescope/telescope.nvim) as a fallback UI helper for picker/preview tasks
 
 ## Setup
 
@@ -258,7 +260,9 @@ These shortcuts are shown in `[square brackets]` below.
 
 - `:Mtoc p[ick]`
 
-  Opens a Telescope picker to preview and insert a ToC with chosen heading-level bounds.
+  Opens a picker UI to preview and insert a ToC with chosen heading-level bounds.
+  By default, uses Snacks.picker if available, otherwise falls back to Telescope.
+  You can configure the preferred picker via the `picker.preferred` option.
 
   Presets:
   - Global ToC (all headings): full-document ToC honoring `headings.before_toc` option.
@@ -273,7 +277,7 @@ These shortcuts are shown in `[square brackets]` below.
   Behavior:
   - Preview mirrors exactly what will be inserted at the current cursor position (partial vs full).
   - Insertion always wraps the ToC in fences and records any selected `min`/`max` bounds in the fences.
-  - If Telescope is not available, this command is a no-op.
+  - If neither Snacks.picker nor Telescope is available, a warning will be shown.
 
 - `Mtoc debug`
   Inserts a debug listing of detected headings at cursor position using current configuration,
@@ -325,6 +329,14 @@ These shortcuts are shown in `[square brackets]` below.
     events = { "BufWritePre" },
     pattern = { "*.md", "*.mdown", "*.mkd", "*.mkdn", "*.markdown", "*.mdwn" },
     suppress_pollution = true,
+  },
+
+  picker = {
+    -- Preferred picker for `:Mtoc pick` command
+    -- 'auto': Try Snacks.picker first, fallback to Telescope (default)
+    -- 'snacks': Use Snacks.picker, fallback to Telescope
+    -- 'telescope': Use Telescope, fallback to Snacks.picker
+    preferred = 'auto',
   },
 }
 ```
