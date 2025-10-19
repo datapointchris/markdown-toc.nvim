@@ -96,6 +96,15 @@ M.defaults = {
     suppress_pollution = true,
   },
 
+  -- Picker configuration for `:Mtoc pick` command
+  picker = {
+    -- Preferred picker to use: 'snacks' | 'telescope' | 'auto'
+    -- 'snacks': Use Snacks.picker (preferred)
+    -- 'telescope': Use Telescope
+    -- 'auto': Try Snacks first, fallback to Telescope
+    preferred = 'auto',
+  },
+
   -- links = {
   --   formatters = {
   --     gfm = "builtins.gfm",

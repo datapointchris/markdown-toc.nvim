@@ -299,10 +299,159 @@ function M._select_toc_textobj(inner)
   return 'gv'
 end
 
--- Telescope picker: preview ToC variants for common heading-level bounds and insert selection
+-- Build picker presets dynamically from source buffer context
+local function build_picker_presets(src_buf, src_cur_line)
+  local presets = {}
+
+  -- Always include a Global preset (full document)
+  table.insert(presets, { name = 'Global ToC (all headings)', scope = 'global', min = nil, max = nil })
+
+  -- Compute maximum heading depth available across the entire buffer
+  local max_depth_global = 1
+  vim.api.nvim_buf_call(src_buf, function()
+    local is_inside_code_block = false
+    for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, 0, -1, false)) do
+      if l:find('^```') then
+        is_inside_code_block = not is_inside_code_block
+      elseif not is_inside_code_block then
+        local hpfx = l:match(config.opts.headings.pattern)
+        if hpfx and #hpfx <= 6 then
+          if #hpfx > max_depth_global then max_depth_global = #hpfx end
+        end
+      end
+    end
+  end)
+
+  -- Add incremental global presets starting from H1
+  local g_min = 1
+  local g_end = math.min(max_depth_global, 6)
+  for lvl = g_min, g_end do
+    local label = (lvl == g_min) and string.format('Global: H%d only', lvl) or string.format('Global: H%d..H%d', g_min, lvl)
+    table.insert(presets, { name = label, scope = 'global', min = g_min, max = lvl })
+  end
+
+  -- Determine section base depth for incremental presets using captured cursor
+  local base_depth = 1
+  local max_depth_found = 1
+  local s_range, e_range
+  vim.api.nvim_buf_call(src_buf, function()
+    s_range, e_range = toc.find_current_section_range(src_cur_line)
+    local line = vim.api.nvim_buf_get_lines(src_buf, s_range, s_range+1, false)[1] or ''
+    local pfx = line:match(config.opts.headings.pattern)
+    if pfx then base_depth = #pfx end
+    local is_inside_code_block = false
+    for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, s_range, e_range, false)) do
+      if l:find('^```') then
+        is_inside_code_block = not is_inside_code_block
+      elseif not is_inside_code_block then
+        local hpfx = l:match(config.opts.headings.pattern)
+        if hpfx and #hpfx <= 6 then
+          if #hpfx > max_depth_found then max_depth_found = #hpfx end
+        end
+      end
+    end
+  end)
+
+  -- Section (all headings within section)
+  table.insert(presets, { name = 'Section ToC (all headings)', scope = 'section', min = nil, max = nil, base = base_depth })
+
+  -- Section with incremental max levels: offer only levels that actually exist in the section
+  local min_lvl = math.min(base_depth + 1, 6)
+  local end_lvl = math.min(max_depth_found, 6)
+  for lvl = min_lvl, end_lvl do
+    local label = (lvl == min_lvl) and string.format('Section: H%d only', lvl) or string.format('Section: H%d..H%d', min_lvl, lvl)
+    table.insert(presets, { name = label, scope = 'section', min = min_lvl, max = lvl, base = base_depth })
+  end
+
+  return presets
+end
+
+-- Generate preview lines for a given preset
+local function generate_preview_lines(src_buf, src_cur_line, min_b, max_b, scope)
+  local lines = {}
+  vim.api.nvim_buf_call(src_buf, function()
+    local hcfg = config.opts.headings
+    local saved_min, saved_max = hcfg.min_depth, hcfg.max_depth
+    if min_b ~= nil then hcfg.min_depth = min_b end
+    if max_b ~= nil then hcfg.max_depth = max_b end
+    if scope == 'section' then
+      local s_range, e_range = toc.find_current_section_range(src_cur_line)
+      lines = toc.gen_toc_list_for_range(s_range, e_range)
+    else
+      lines = toc.gen_toc_list(0)
+    end
+    hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
+  end)
+  if lines and #lines > 0 then
+    lines = config.opts.toc_list.post_processor(lines)
+  else
+    lines = { '(empty)' }
+  end
+  return lines
+end
+
+-- Snacks picker implementation
+local function pick_insert_snacks()
+  local ok, snacks = pcall(require, 'snacks')
+  if not ok or not snacks.picker then return false end
+
+  if config.opts.debug then
+    vim.notify('Using Snacks.picker', vim.log.levels.INFO)
+  end
+
+  local src_buf = vim.api.nvim_get_current_buf()
+  local src_cur_line = vim.api.nvim_win_get_cursor(0)[1]
+  local presets = build_picker_presets(src_buf, src_cur_line)
+
+  -- Convert presets to items
+  local items = {}
+  for _, preset in ipairs(presets) do
+    local preview_lines = generate_preview_lines(src_buf, src_cur_line, preset.min, preset.max, preset.scope)
+    table.insert(items, {
+      text = preset.name,
+      preset = preset,
+      preview = {
+        text = table.concat(preview_lines, '\n'),
+        ft = 'markdown',
+      },
+    })
+  end
+
+  snacks.picker.pick({
+    title = 'Insert ToC (choose heading levels)',
+    items = items,
+    format = function(item)
+      return { { item.text } }
+    end,
+    preview = snacks.picker.preview.preview,
+    actions = {
+      confirm = function(picker, item)
+        if item and item.preset then
+          picker:close()
+          insert_toc({
+            min_depth = item.preset.min,
+            max_depth = item.preset.max,
+            force_fence = true,
+            force_section = (item.preset.scope == 'section'),
+            force_all = (item.preset.scope == 'global'),
+          })
+        end
+      end,
+    },
+  })
+
+  return true
+end
+
+-- Telescope picker implementation
 local function pick_insert_telescope()
   local ok, _ = pcall(require, 'telescope')
-  if not ok then return end
+  if not ok then return false end
+
+  if config.opts.debug then
+    vim.notify('Using Telescope', vim.log.levels.INFO)
+  end
+
   local pickers = require('telescope.pickers')
   local finders = require('telescope.finders')
   local conf = require('telescope.config').values
@@ -312,86 +461,10 @@ local function pick_insert_telescope()
 
   local src_buf = vim.api.nvim_get_current_buf()
   local src_cur_line = vim.api.nvim_win_get_cursor(0)[1]
-
-  -- Build presets dynamically from source buffer context
-  local presets = {}
-  do
-    -- Always include a Global preset (full document)
-    table.insert(presets, { name = 'Global ToC (all headings)', scope = 'global', min = nil, max = nil })
-    -- Compute maximum heading depth available across the entire buffer
-    local max_depth_global = 1
-    vim.api.nvim_buf_call(src_buf, function()
-      local is_inside_code_block = false
-      for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, 0, -1, false)) do
-        if l:find('^```') then
-          is_inside_code_block = not is_inside_code_block
-        elseif not is_inside_code_block then
-          local hpfx = l:match(config.opts.headings.pattern)
-          if hpfx and #hpfx <= 6 then
-            if #hpfx > max_depth_global then max_depth_global = #hpfx end
-          end
-        end
-      end
-    end)
-    -- Add incremental global presets starting from H1
-    local g_min = 1
-    local g_end = math.min(max_depth_global, 6)
-    for lvl = g_min, g_end do
-      local label = (lvl == g_min) and string.format('Global: H%d only', lvl) or string.format('Global: H%d..H%d', g_min, lvl)
-      table.insert(presets, { name = label, scope = 'global', min = g_min, max = lvl })
-    end
-    -- Determine section base depth for incremental presets using captured cursor
-    local base_depth = 1
-    local max_depth_found = 1
-    local s_range, e_range
-    vim.api.nvim_buf_call(src_buf, function()
-      s_range, e_range = toc.find_current_section_range(src_cur_line)
-      local line = vim.api.nvim_buf_get_lines(src_buf, s_range, s_range+1, false)[1] or ''
-      local pfx = line:match(config.opts.headings.pattern)
-      if pfx then base_depth = #pfx end
-      local is_inside_code_block = false
-      for _, l in ipairs(vim.api.nvim_buf_get_lines(src_buf, s_range, e_range, false)) do
-        if l:find('^```') then
-          is_inside_code_block = not is_inside_code_block
-        elseif not is_inside_code_block then
-          local hpfx = l:match(config.opts.headings.pattern)
-          if hpfx and #hpfx <= 6 then
-            if #hpfx > max_depth_found then max_depth_found = #hpfx end
-          end
-        end
-      end
-    end)
-    -- Section (all headings within section)
-    table.insert(presets, { name = 'Section ToC (all headings)', scope = 'section', min = nil, max = nil, base = base_depth })
-    -- Section with incremental max levels: offer only levels that actually exist in the section
-    local min_lvl = math.min(base_depth + 1, 6)
-    local end_lvl = math.min(max_depth_found, 6)
-    for lvl = min_lvl, end_lvl do
-      local label = (lvl == min_lvl) and string.format('Section: H%d only', lvl) or string.format('Section: H%d..H%d', min_lvl, lvl)
-      table.insert(presets, { name = label, scope = 'section', min = min_lvl, max = lvl, base = base_depth })
-    end
-  end
+  local presets = build_picker_presets(src_buf, src_cur_line)
 
   local function render_preview(bufnr, min_b, max_b, scope)
-    local lines = {}
-    vim.api.nvim_buf_call(src_buf, function()
-      local hcfg = config.opts.headings
-      local saved_min, saved_max = hcfg.min_depth, hcfg.max_depth
-      if min_b ~= nil then hcfg.min_depth = min_b end
-      if max_b ~= nil then hcfg.max_depth = max_b end
-      if scope == 'section' then
-        local s_range, e_range = toc.find_current_section_range(src_cur_line)
-        lines = toc.gen_toc_list_for_range(s_range, e_range)
-      else
-        lines = toc.gen_toc_list(0)
-      end
-      hcfg.min_depth, hcfg.max_depth = saved_min, saved_max
-    end)
-    if lines and #lines > 0 then
-      lines = config.opts.toc_list.post_processor(lines)
-    else
-      lines = { '(empty)' }
-    end
+    local lines = generate_preview_lines(src_buf, src_cur_line, min_b, max_b, scope)
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     pcall(vim.api.nvim_buf_set_option, bufnr, 'filetype', 'markdown')
   end
@@ -411,13 +484,16 @@ local function pick_insert_telescope()
     sorter = conf.generic_sorter({}),
     previewer = previewers.new_buffer_previewer({
       define_preview = function(self, entry)
+        if not entry or not entry.value then return end
         local v = entry.value
         render_preview(self.state.bufnr, v.min, v.max, v.scope)
       end,
     }),
     attach_mappings = function(prompt_bufnr, map)
       actions.select_default:replace(function()
-        local selection = action_state.get_selected_entry().value
+        local entry = action_state.get_selected_entry()
+        if not entry then return end
+        local selection = entry.value
         actions.close(prompt_bufnr)
         insert_toc({
           min_depth = selection.min,
@@ -430,6 +506,48 @@ local function pick_insert_telescope()
       return true
     end,
   }):find()
+
+  return true
+end
+
+-- Main picker entry point: respects user preference from config
+local function pick_insert()
+  local preferred = (config.opts.picker and config.opts.picker.preferred) or 'auto'
+
+  if config.opts.debug then
+    vim.notify('Picker preference: ' .. preferred, vim.log.levels.INFO)
+  end
+
+  if preferred == 'telescope' then
+    -- Try Telescope first
+    if pick_insert_telescope() then
+      return
+    end
+    -- Fall back to Snacks
+    if pick_insert_snacks() then
+      return
+    end
+  elseif preferred == 'snacks' then
+    -- Try Snacks first
+    if pick_insert_snacks() then
+      return
+    end
+    -- Fall back to Telescope
+    if pick_insert_telescope() then
+      return
+    end
+  else
+    -- 'auto' or any other value: Try Snacks first (default), then Telescope
+    if pick_insert_snacks() then
+      return
+    end
+    if pick_insert_telescope() then
+      return
+    end
+  end
+
+  -- No picker available
+  vim.notify('ToC picker requires either Snacks.picker or Telescope to be installed', vim.log.levels.WARN)
 end
 
 -- Update all fenced ToCs in the current buffer. Preserves labels for partial ToCs.
@@ -642,7 +760,7 @@ local function handle_command(opts)
   elseif cmd == "update" then
     return update_all_tocs()
   elseif cmd == "pick" then
-    return pick_insert_telescope()
+    return pick_insert()
   else
     vim.notify("INTERNAL ERROR: Unhandled command "..cmd, vim.log.levels.ERROR)
   end
