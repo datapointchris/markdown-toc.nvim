@@ -73,7 +73,7 @@ table in the `opts` key if you’re using Lazy.nvim.
         -- position to be included in the ToC.
         before_toc = false,
       },
-    
+
       -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
       -- Fences are needed for the update/remove commands, otherwise you can
       -- manually select ToC and run update.
@@ -86,10 +86,10 @@ table in the `opts` key if you’re using Lazy.nvim.
         -- An empty line is inserted on top and below the ToC list before the being
         -- wrapped with the fence texts, same as vim-markdown-toc.
       },
-    
+
       -- Enable auto-update of the ToC (if fences found) on buffer save
       auto_update = true,
-    
+
       toc_list = {
         -- string or list of strings (for cycling)
         -- If cycle_markers = false and markers is a list, only the first is used.
@@ -206,7 +206,7 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         -- title.
         pattern = "^(#+)%s+(.+)$",
       },
-    
+
       -- Config relating to the style and format of the ToC
       toc_list = {
         -- string or list of strings (for cycling)
@@ -218,16 +218,16 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         -- Example config for cycling markers:
         ----- markers = {'*', '+', '-'},
         ----- cycle_markers = true,
-    
+
         -- Integer or a function that returns an integer.
         -- If function, it is called every time the ToC is regenerated. This allows the use
         -- of retrieving buffer-local settings like shiftwidth.
         indent_size = 2,
-    
+
         -- Remove the ${indent} below, or set indent_size=0 to have the whole ToC
         -- be a flattened list.
         item_format_string = "${indent}${marker} [${name}](#${link})",
-    
+
         ---Formatter for a single ToC list item.
         -- `item_info` has fields `name`, `link`, `marker`, `indent`, To change the
         -- format of each heading item but keep the same field substitution syntax,
@@ -241,15 +241,15 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
           end)
           return s
         end,
-    
+
         -- Called after an array of lines for the ToC is computed. This does not
         -- include the fences even if it's enabled.
         post_processor = function(lines) return lines end,
-    
+
         -- Add padding (blank lines) before and after the TOC
         padding_lines = 1,
       },
-    
+
       -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
       -- Fences are needed for the update/remove commands.
       fences = {
@@ -261,7 +261,7 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         -- An empty line is inserted on top and below the ToC list before the being
         -- wrapped with the fence texts, same as vim-markdown-toc.
       },
-    
+
       -- Set auto_update=true to use the following defaults.
       -- Set to false to disable completely.
       -- Fields events and pattern are used unprocessed for creating autocmds.

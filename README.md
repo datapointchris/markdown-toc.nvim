@@ -3,7 +3,6 @@
 # markdown-toc.nvim
 <!-- panvimdoc-ignore-end -->
 
-
 Generate and update table of contents list (with links) for markdown.
 
 Almost fully replaces vim-markdown-toc, written in 100% lua.
@@ -24,16 +23,16 @@ Dog-fooding ;)
 
 <!-- mtoc-start -->
 
-* [Install](#install)
-* [Setup](#setup)
-  * [Common configuration options](#common-configuration-options)
-  * [Fences](#fences)
-  * [Examples](#examples)
-* [Commands](#commands)
-* [Full Configuration](#full-configuration)
-  * [Advanced Examples](#advanced-examples)
-  * [Project-local configuration](#project-local-configuration)
-* [TODO](#todo)
+- [Install](#install)
+- [Setup](#setup)
+  - [Common configuration options](#common-configuration-options)
+  - [Fences](#fences)
+  - [Examples](#examples)
+- [Commands](#commands)
+- [Full Configuration](#full-configuration)
+  - [Advanced Examples](#advanced-examples)
+  - [Project-local configuration](#project-local-configuration)
+- [TODO](#todo)
 
 <!-- mtoc-end -->
 <!-- panvimdoc-ignore-end -->
@@ -76,7 +75,6 @@ configuration will be used.
 
 However, the setup call is **required** if you want to enable the auto-update
 feature (because autocmds have to be set up).
-
 
 ### Common configuration options
 
@@ -138,11 +136,13 @@ See [commands](#commands).
 
 Disable fences (update/remove ToC will not work, unless you run update with
 manually selected ToC range):
+
 ```lua
 fences = false,
 ```
 
 Cycle markers:
+
 ```lua
 toc_list = {
   markers = {'*', '+', '-'},
@@ -151,6 +151,7 @@ toc_list = {
 ```
 
 Use numbered list for TOC
+
 ```lua
 toc_list = {
   markers = '1.',
@@ -158,6 +159,7 @@ toc_list = {
 ```
 
 Cycling of markers produces a ToC list like this:
+
 ```md
 * [First heading](#first-heading)
   + [Sub heading](#sub-heading)
@@ -173,7 +175,6 @@ To customize the indent size please see [full
 configurations](#full-configuration).
 
 [Advanced configuration patterns](#advanced-examples)
-
 
 ## Commands
 
@@ -212,7 +213,6 @@ These shortcuts are shown in `[square brackets]` below.
 
   It may print errors when no fences are found, start-end fences are not
   matched, or end found before start.
-
 
 ## Full Configuration
 
@@ -303,6 +303,7 @@ These shortcuts are shown in `[square brackets]` below.
 ### Advanced Examples
 
 Custom link formatter:
+
 ```lua
 toc_list = {
   item_formatter = function(item, fmtstr)
@@ -312,10 +313,12 @@ toc_list = {
   end,
 },
 ```
+
 In the above example a link for a heading is generated simply by converting all
 spaces to underscores.
 
 You can also wrap the existing formatter like so:
+
 ```lua
 toc_list = {
   item_formatter = function(item, fmtstr)
@@ -327,6 +330,7 @@ toc_list = {
 ```
 
 Exclude headings named "CHANGELOG" or "License":
+
 ```lua
 headings = {
   exclude = {"CHANGELOG", "License"},
@@ -334,6 +338,7 @@ headings = {
 ```
 
 Exclude headings that begin with "TODO":
+
 ```lua
 headings = {
   exclude = "^TODO",
@@ -341,6 +346,7 @@ headings = {
 ```
 
 Exclude all capitalized headings:
+
 ```lua
 headings = {
   exclude = function(title)
@@ -351,6 +357,7 @@ headings = {
 ```
 
 Set indent size for ToC list based on shiftwidth opt:
+
 ```lua
 toc_list = {
   indent_size = function()
@@ -360,12 +367,15 @@ toc_list = {
 ```
 
 Flattened ToC list without links:
+
 ```lua
 toc_list = {
   item_format_string = "${marker} ${name}",
 },
 ```
+
 This produces something like this:
+
 ```md
 * Heading 1
 * Sub heading
@@ -374,6 +384,7 @@ This produces something like this:
 ```
 
 Ensure all heading names are in Title Case when listed in ToC:
+
 ```lua
 toc_list = {
   item_formatter = function(item, fmtstr)
@@ -384,10 +395,12 @@ toc_list = {
   end,
 },
 ```
+
 Remove `:lower()` to avoid decapitalizing already capitalized rest of words
 (like the case for acronyms).
 
 Include only 2nd-level headings
+
 ```lua
 headings = {
   pattern = "^(##)%s+(.+)$",
@@ -407,6 +420,7 @@ end
 ```
 
 Then in your project root, create a file named `.nvim.lua`, with the following contents:
+
 ```lua
 local ok, mtoc = pcall(require, 'mtoc')
 if ok then
@@ -418,7 +432,6 @@ end
 
 Here's an example `.nvim.lua` in the wild that makes use of
 `mtoc.update_config`: <https://github.com/hedyhli/outline.nvim/blob/main/.nvim.lua>
-
 
 <!-- panvimdoc-ignore-start -->
 ## TODO
