@@ -1,0 +1,28 @@
+# forge-toolchain: 11
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v7
+
+      # generated:lua
+      # --check, not the formatting run the pre-commit hook does: CI reports,
+      # it does not rewrite the tree.
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ github.token }}
+          version: latest
+          args: --check .
