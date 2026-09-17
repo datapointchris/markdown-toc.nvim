@@ -1,5 +1,5 @@
 *mtoc.txt*
-                             For NVIM v0.5.0    Last change: 2026 September 03
+                             For NVIM v0.5.0    Last change: 2026 September 17
 
 ==============================================================================
 Table of Contents                                     *mtoc-table-of-contents*
@@ -15,7 +15,8 @@ Almost fully replaces vim-markdown-toc, written in 100% lua.
 - Supports setext style headings (`======` and `------`).
 - Supports GitHub Flavoured Markdown links by default. If you want to use
     another link format a better configuration structure for this is
-    |mtoc-planned|, but for now you can set your own |mtoc-formatter-function|.
+    planned, but for now you can set your own formatter
+    function.
 - You can disable fences but keep the updating feature by manually selecting
     your table of contents in visual mode, then running `:Mtoc`
 
@@ -159,9 +160,10 @@ Cycling of markers produces a ToC list like this:
       + [Second sub heading](#second-sub-heading)
 <
 
-To customize the indent size please see |mtoc-full-configurations|.
+To customize the indent size please see full configurations
+|mtoc-full-configuration|.
 
-|mtoc-advanced-configuration-patterns|
+Advanced configuration patterns
 
 
 COMMANDS                                                       *mtoc-commands*
