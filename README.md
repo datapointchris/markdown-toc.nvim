@@ -1,13 +1,13 @@
 <!-- panvimdoc-ignore-start -->
 
 # markdown-toc.nvim
+
 <!-- panvimdoc-ignore-end -->
 
 Generate and update table of contents list (with links) for markdown.
 
 Almost fully replaces vim-markdown-toc, written in 100% lua.
 
-- Supports setext style headings (`======` and `------`).
 - Supports GitHub Flavoured Markdown links by default. If you want to use
   another link format a better configuration structure for this is
   [planned](#todo), but for now you can set your own [formatter
@@ -70,11 +70,9 @@ plugin spec for Lazy.nvim.
 require('mtoc').setup({})
 ```
 
-A call to the setup function is not required for the plugin to work. Default
-configuration will be used.
-
-However, the setup call is **required** if you want to enable the auto-update
-feature (because autocmds have to be set up).
+The setup call is **required**. It creates the `:Mtoc` command and the
+auto-update autocmd, and neither exists until it runs. Lazy.nvim makes the call
+when the plugin spec sets `opts`, even to an empty table.
 
 ### Common configuration options
 
@@ -280,8 +278,8 @@ These shortcuts are shown in `[square brackets]` below.
     enabled = true,
     -- These fence texts are wrapped within "<!-- % -->", where the '%' is
     -- substituted with the text.
-    start_text = "mtoc start",
-    end_text = "mtoc end"
+    start_text = "mtoc-start",
+    end_text = "mtoc-end"
     -- An empty line is inserted on top and below the ToC list before the being
     -- wrapped with the fence texts, same as vim-markdown-toc.
   },

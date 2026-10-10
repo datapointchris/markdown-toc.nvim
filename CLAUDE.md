@@ -11,6 +11,9 @@ There is no `plugin/` directory. `require("mtoc").setup()` registers `:Mtoc` and
 the auto-update autocmd. Before it runs, neither exists. lazy.nvim calls it when
 the spec sets `opts`. `update_config()` merges onto the current options rather
 than the defaults, and it is what a project-local `.nvim.lua` calls.
+`setup()` and `update_config()` each clear the `mtoc` augroup before
+registering the autocmd in it, so there is at most one. With
+`auto_update.enabled` false the group stays empty.
 
 - `init.lua` parses the command and performs insert, update and remove.
 - `toc.lua` finds the fences, scans the headings and builds the slugs.
@@ -33,6 +36,12 @@ turns a boolean `fences` or `auto_update` into its table form. It turns a string
 `markers`, `events` or `exclude` into a one-item list. An option with a
 shortcut form is normalized there.
 
+`defaults` is never written. `setup()` merges onto a deep copy of it, and a
+boolean shortcut expands to a deep copy of its table. `vim.tbl_deep_extend`
+returns a new top-level table but keeps references to every subtable it did
+not merge. So a write through `opts` without the copy lands in `defaults`, and
+the next `setup()` starts from it.
+
 A new option needs its default in `config.lua` and a field in both
 `mtoc.Config` and `mtoc.UserConfig`. It also needs an entry in the README's
 Full Configuration block, which is also the vimdoc.
@@ -43,7 +52,14 @@ ToC order is declaration order, so `gen_toc_list` builds no tree. The scan
 starts below the cursor line, or below the old ToC's position on update. A
 title above the ToC is therefore left out of it, unless `headings.before_toc`
 is set. A heading more than one level below the previous one is clamped to one
-level below it. The shallowest level found is then indented to zero.
+level below it. The shallowest level found is then indented to zero. Each
+entry's marker is picked from `toc_list.markers` by that indented level, which
+is what `cycle_markers` cycles.
+
+A heading `headings.exclude` matches is dropped after its slug is built. It
+still counts toward the duplicate suffixes, as it does in GitHub's anchors. It
+does not count as the previous level for the clamp. Setext headings are not
+recognized.
 
 Links inside a heading are reduced to their text before the name and the slug
 are built. Case folding and character stripping go through `vim.fn.tolower` and
@@ -80,9 +96,12 @@ cursor, without fences or the post-processor.
 
 The panvimdoc workflow converts `README.md` into `doc/mtoc.txt` on every push.
 When the output differs from the committed file, the workflow commits it back
-to the pushed branch as "Auto generate vim doc". Edit the README, never
-`doc/mtoc.txt`. After such a run the local branch is one commit behind origin.
-Sections between `<!-- panvimdoc-ignore-start -->` and
+to the pushed branch as "Auto generate vim doc". It sets panvimdoc's `nodate`,
+so the title carries no date and an unchanged README commits nothing. Its
+`version` names the oldest Neovim the plugin runs on, which is the release that
+added the newest API the code calls. A call to a newer API raises it. Edit the
+README, never `doc/mtoc.txt`. After such a run the local branch is one commit
+behind origin. Sections between `<!-- panvimdoc-ignore-start -->` and
 `<!-- panvimdoc-ignore-end -->` stay out of the vimdoc. Those are the title, the
 ToC and the TODO list.
 
