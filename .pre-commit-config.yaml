@@ -1,4 +1,4 @@
-# forge-toolchain: 38
+# forge-toolchain: 40
 fail_fast: true
 default_stages: [pre-commit]
 repos:
@@ -186,12 +186,21 @@ repos:
         args: [--moves]
 
 # generated:lua - Lua
-  # The cargo hook, not stylua-github: that one finds the release through
-  # GitHub's API unauthenticated, and a spent hourly budget blocks every commit.
-  - repo: https://github.com/JohnnyMorganz/StyLua
-    rev: v2.5.2
+  # The release binary, installed from npm at the StyLua hook's rev. StyLua's
+  # own cargo hook builds without the Lua 5.2 and LuaJIT syntaxes, so it cannot
+  # parse a goto label, which Neovim's LuaJIT runs. stylua-github finds the
+  # release through GitHub's API unauthenticated, and a spent hourly budget
+  # blocks every commit. The npm package takes the same release's binary from
+  # the npm registry.
+  - repo: local
     hooks:
       - id: stylua
+        name: stylua
+        entry: stylua
+        language: node
+        additional_dependencies:
+          - "@johnnymorganz/stylua-bin@2.5.2"
+        types: [lua]
 
 # generated:github-actions - GitHub Actions
   - repo: https://github.com/rhysd/actionlint
