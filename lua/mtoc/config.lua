@@ -90,14 +90,14 @@ M.defaults = {
 }
 
 ---@type mtoc.Config
-M.opts = M.defaults
+M.opts = vim.deepcopy(M.defaults)
 
 ---Should be called after merge_opts (ensure config.opts is non-empty)
 function M.resolve_shortcut_opts()
   ---@type any
   local value = M.opts.fences
   if type(value) == "boolean" then
-    M.opts.fences = M.defaults.fences
+    M.opts.fences = vim.deepcopy(M.defaults.fences)
     if not value then
       M.opts.fences.enabled = false
     end
@@ -105,7 +105,7 @@ function M.resolve_shortcut_opts()
 
   value = M.opts.auto_update
   if type(value) == "boolean" then
-    M.opts.auto_update = M.defaults.auto_update
+    M.opts.auto_update = vim.deepcopy(M.defaults.auto_update)
     if not value then
       M.opts.auto_update.enabled = false
     end
@@ -127,7 +127,7 @@ end
 
 ---@param opts mtoc.UserConfig
 function M.merge_opts(opts)
-  M.opts = vim.tbl_deep_extend("force", {}, M.defaults, opts or {})
+  M.opts = vim.tbl_deep_extend("force", vim.deepcopy(M.defaults), opts or {})
   M.resolve_shortcut_opts()
 end
 
