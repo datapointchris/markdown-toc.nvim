@@ -189,31 +189,26 @@ local function setup_commands()
   })
 end
 
+local augroup = "mtoc"
+
 local function setup_autocmds()
-  M.autocmds = {}
-  if config.opts.auto_update then
-    local aup = config.opts.auto_update
-    if type(aup) == "boolean" then
-      aup = config.defaults.auto_update
-    end
-    local id = vim.api.nvim_create_autocmd(aup.events, {
-      pattern = aup.pattern,
-      callback = function()
-        update_toc({}, true)
-      end,
-    })
-    table.insert(M, id)
+  local group = vim.api.nvim_create_augroup(augroup, { clear = true })
+  local aup = config.opts.auto_update
+  if not aup.enabled then
+    return
   end
+  vim.api.nvim_create_autocmd(aup.events, {
+    group = group,
+    pattern = aup.pattern,
+    callback = function()
+      update_toc({}, true)
+    end,
+  })
 end
 
 ---Remove autocmds that were set up by this plugin
 function M.remove_autocmds()
-  if empty_or_nil(M.autocmds) then
-    return
-  end
-  for _, id in ipairs(M.autocmds) do
-    vim.api.nvim_del_autocmd(id)
-  end
+  vim.api.nvim_create_augroup(augroup, { clear = true })
 end
 
 ---Merge user opts with default opts and set up autocmds and commands
@@ -229,7 +224,6 @@ end
 ---@param opts mtoc.UserConfig
 function M.update_config(opts)
   config.update_opts(opts)
-  M.remove_autocmds()
   setup_autocmds()
 end
 
