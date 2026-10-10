@@ -12,9 +12,8 @@ jobs:
         uses: kdheepak/panvimdoc@4c8eaecb80058694171627629c6ff59bcf41472d # v6.0.0
         with:
           vimdoc: mtoc
-          version: "NVIM v0.5.0"
-      - name: Strip last change date
-        run: sed -E '1s_\s+Last.*__' -i doc/mtoc.txt
+          version: "NVIM v0.7.0"
+          nodate: true
       - uses: stefanzweifel/git-auto-commit-action@3ea6ae190baf489ba007f7c92608f33ce20ef04a # v4.16.0
         with:
           commit_message: "Auto generate vim doc"
