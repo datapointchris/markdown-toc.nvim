@@ -9,13 +9,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: panvimdoc
-        uses: kdheepak/panvimdoc@main
+        uses: kdheepak/panvimdoc@4c8eaecb80058694171627629c6ff59bcf41472d # main as of 2026-10-10
         with:
           vimdoc: mtoc
           version: "NVIM v0.5.0"
       - name: Strip last change date
         run: sed -E '1s_\s+Last.*__' -i doc/mtoc.txt
-      - uses: stefanzweifel/git-auto-commit-action@v4
+      - uses: stefanzweifel/git-auto-commit-action@3ea6ae190baf489ba007f7c92608f33ce20ef04a # v4.16.0
         with:
           commit_message: "Auto generate vim doc"
           branch: ${{ github.head_ref }}
