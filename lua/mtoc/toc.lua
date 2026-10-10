@@ -112,9 +112,24 @@ function M.gen_toc_list(start_from)
 
   ---@type string|string[]
   local markers = toc_config.markers
-  local marker_index = 1
   if not toc_config.cycle_markers then
     markers = { markers[1] }
+  end
+
+  ---@type fun(heading: string): boolean
+  local is_excluded
+  local exclude = config.opts.headings.exclude
+  if type(exclude) == "function" then
+    is_excluded = exclude
+  else
+    is_excluded = function(heading)
+      for _, pattern in ipairs(exclude) do
+        if string.match(heading, pattern) then
+          return true
+        end
+      end
+      return false
+    end
   end
 
   local indent_size = toc_config.indent_size
@@ -145,6 +160,16 @@ function M.gen_toc_list(start_from)
       goto nextline
     end
 
+    -- Strip embedded links in TOC: both in name and link.
+    name = name:gsub("%[(.-)%]%(.-%)", "%1")
+
+    -- An excluded heading still counts toward duplicate slugs, as it does in
+    -- GitHub's anchors.
+    local link = M.link_formatters.gfm(all_heading_links, name)
+    if is_excluded(name) then
+      goto nextline
+    end
+
     local depth = #prefix
 
     if prev_depth + 1 < depth then
@@ -152,20 +177,12 @@ function M.gen_toc_list(start_from)
     end
     prev_depth = depth
 
-    marker_index = (marker_index - 1) % #markers + 1
-    local marker = markers[marker_index]
-
-    -- Strip embedded links in TOC: both in name and link.
-    name = name:gsub("%[(.-)%]%(.-%)", "%1")
-
     depth = depth - 1
 
-    local link = M.link_formatters.gfm(all_heading_links, name)
     local fmt_info = {
       name = name,
       link = link,
       depth = depth,
-      marker = marker,
       raw_line = line,
     }
 
@@ -181,6 +198,7 @@ function M.gen_toc_list(start_from)
     -- Ensure lowest depth is 0
     local depth = fmt_info.depth - min_depth
     fmt_info.indent = (" "):rep(depth * indent_size)
+    fmt_info.marker = markers[depth % #markers + 1]
     local item = item_formatter(fmt_info, toc_config.item_format_string)
     table.insert(lines, item)
   end
