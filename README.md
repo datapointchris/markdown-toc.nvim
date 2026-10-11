@@ -15,6 +15,9 @@ with fixes to option merging, heading exclusion and marker cycling.
 - Spells links the way GitHub does by default, or the way Forgejo and Codeberg
   do with `toc_list.link_formatter = "forgejo"`. Any other format takes your
   own [formatter function](#advanced-examples).
+- A link in a heading is listed as its text. That includes an Obsidian wiki
+  link, `[[Note]]` or `[[Note|alias]]`, which is listed as its alias where it
+  has one.
 - You can disable fences but keep the updating feature by manually selecting
   your table of contents in visual mode, then running `:Mtoc`
 

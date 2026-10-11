@@ -188,7 +188,9 @@ function M.gen_toc_list(start_from)
       goto nextline
     end
 
-    -- Strip embedded links in TOC: both in name and link.
+    -- Strip embedded links in TOC: both in name and link. A wiki link keeps its
+    -- alias where it has one.
+    name = name:gsub('%[%[[^%]|]-|([^%]]-)%]%]', '%1'):gsub('%[%[([^%]]-)%]%]', '%1')
     name = name:gsub('%[(.-)%]%(.-%)', '%1')
 
     -- An excluded heading, or one outside the level bounds, still counts toward

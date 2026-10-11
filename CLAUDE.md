@@ -69,7 +69,8 @@ toward the duplicate suffixes, as it does in GitHub's anchors. It opens no level
 for later headings to nest under. Setext headings are not recognized.
 
 Links inside a heading are reduced to their text before the name and the slug
-are built. Case folding and character stripping go through `vim.fn.tolower` and
+are built. A wiki link, `[[Note]]` or `[[Note|alias]]`, is reduced to its alias
+where it has one. Case folding and character stripping go through `vim.fn.tolower` and
 Vim's regex. Lua's string library works on bytes and mangles non-ASCII headings.
 A new text transform belongs on `vim.fn` for the same reason. A repeated slug
 takes a `-1`, `-2` suffix, as GitHub's anchors do.

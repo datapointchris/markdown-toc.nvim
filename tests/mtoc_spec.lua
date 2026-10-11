@@ -129,6 +129,14 @@ check(
 )
 check('forgejo names an empty slug heading', vim.deep_equal(toc_of({ '## !!!' }), { '* [!!!](#heading)' }))
 
+check(
+  'a wiki link in a heading is reduced to its text, or to its alias',
+  vim.deep_equal(
+    toc_of({ '## [[Note]]', '## See [[Other|the other]] page' }),
+    { '* [Note](#note)', '* [See the other page](#see-the-other-page)' }
+  )
+)
+
 mtoc.setup({ headings = { max_level = 3 } })
 check(
   'max_level drops deeper headings, which still count toward repeated slugs',
