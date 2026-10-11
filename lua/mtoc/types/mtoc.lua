@@ -8,11 +8,15 @@
 ---@field before_toc boolean
 ---@field exclude string[]|fun(heading:string):boolean
 ---@field pattern string
+---@field min_level integer
+---@field max_level integer
 
 ---@class mtoc.UserConfigHeadings
 ---@field before_toc? boolean
 ---@field exclude? string|string[]|fun(heading:string):boolean
 ---@field pattern? string
+---@field min_level? integer
+---@field max_level? integer
 
 ---@class mtoc.ConfigTocList
 ---@field markers string[]

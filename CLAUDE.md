@@ -63,10 +63,10 @@ siblings at the top, and an h4 directly under an h2 sits one level in. Each
 entry's marker is picked from `toc_list.markers` by that depth, which is what
 `cycle_markers` cycles.
 
-A heading `headings.exclude` matches is dropped after its slug is built. It
-still counts toward the duplicate suffixes, as it does in GitHub's anchors. It
-opens no level for later headings to nest under. Setext headings are not
-recognized.
+A heading `headings.exclude` matches, or one outside `headings.min_level` and
+`headings.max_level`, is dropped after its slug is built. It still counts
+toward the duplicate suffixes, as it does in GitHub's anchors. It opens no level
+for later headings to nest under. Setext headings are not recognized.
 
 Links inside a heading are reduced to their text before the name and the slug
 are built. Case folding and character stripping go through `vim.fn.tolower` and

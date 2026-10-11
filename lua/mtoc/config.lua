@@ -10,6 +10,9 @@ M.defaults = {
     -- or a function that returns boolean (true means to EXCLUDE heading)
     exclude = {},
     pattern = '^(#+)%s+(.+)$',
+    -- The shallowest and deepest heading levels listed, 1 for '#' to 6 for '######'.
+    min_level = 1,
+    max_level = 6,
   },
 
   -- Config relating to the style and format of the ToC

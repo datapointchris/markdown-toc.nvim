@@ -128,6 +128,17 @@ check(
   vim.deep_equal(toc_of({ '## snake_case name', '## A', '## A' }), { '* [snake_case name](#snake_case-name)', '* [A](#a)', '* [A](#a-1)' })
 )
 check('forgejo names an empty slug heading', vim.deep_equal(toc_of({ '## !!!' }), { '* [!!!](#heading)' }))
+
+mtoc.setup({ headings = { max_level = 3 } })
+check(
+  'max_level drops deeper headings, which still count toward repeated slugs',
+  vim.deep_equal(toc_of({ '## A', '### B', '#### A', '## A' }), { '* [A](#a)', '  * [B](#b)', '* [A](#a-2)' })
+)
+mtoc.setup({ headings = { min_level = 2 } })
+check(
+  'min_level drops shallower headings, and the next level sits at the top',
+  vim.deep_equal(toc_of({ '# Title', '## A', '### B' }), { '* [A](#a)', '  * [B](#b)' })
+)
 mtoc.setup({})
 
 mtoc.setup({ headings = { exclude = { '^Sub$' } } })

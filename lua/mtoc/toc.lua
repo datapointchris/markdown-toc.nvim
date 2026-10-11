@@ -140,7 +140,8 @@ function M.gen_toc_list(start_from)
 
   ---@type fun(heading: string): boolean
   local is_excluded
-  local exclude = config.opts.headings.exclude
+  local headings_config = config.opts.headings
+  local exclude = headings_config.exclude
   if type(exclude) == 'function' then
     is_excluded = exclude
   else
@@ -190,14 +191,14 @@ function M.gen_toc_list(start_from)
     -- Strip embedded links in TOC: both in name and link.
     name = name:gsub('%[(.-)%]%(.-%)', '%1')
 
-    -- An excluded heading still counts toward duplicate slugs, as it does in
-    -- GitHub's anchors.
+    -- An excluded heading, or one outside the level bounds, still counts toward
+    -- duplicate slugs, as it does in GitHub's anchors.
     local link = format_link(all_heading_links, name)
-    if is_excluded(name) then
+    local level = #prefix
+    if is_excluded(name) or level < headings_config.min_level or level > headings_config.max_level then
       goto nextline
     end
 
-    local level = #prefix
     while #open_levels > 0 and open_levels[#open_levels] >= level do
       table.remove(open_levels)
     end

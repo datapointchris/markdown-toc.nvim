@@ -237,6 +237,9 @@ These shortcuts are shown in `[square brackets]` below.
     -- The first capture is for heading level ('###') and second is for the heading
     -- title.
     pattern = "^(#+)%s+(.+)$",
+    -- The shallowest and deepest heading levels listed, 1 for '#' to 6 for '######'.
+    min_level = 1,
+    max_level = 6,
   },
 
   -- Config relating to the style and format of the ToC
@@ -412,11 +415,14 @@ toc_list = {
 Remove `:lower()` to avoid decapitalizing already capitalized rest of words
 (like the case for acronyms).
 
-Include only 2nd-level headings
+List only 2nd- and 3rd-level headings, leaving the title and anything deeper out
+of a long document's ToC. A heading left out still counts when a repeated
+heading's link takes its `-1` suffix:
 
 ```lua
 headings = {
-  pattern = "^(##)%s+(.+)$",
+  min_level = 2,
+  max_level = 3,
 }
 ```
 
