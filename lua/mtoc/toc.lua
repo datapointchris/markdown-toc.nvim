@@ -1,4 +1,4 @@
-local config = require('mtoc/config')
+local config = require('mtoc.config')
 
 local M = {}
 M.link_formatters = {}

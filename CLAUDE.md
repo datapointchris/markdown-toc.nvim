@@ -2,32 +2,38 @@
 
 A Neovim plugin that generates and updates a linked table of contents in a
 markdown buffer. The Lua module is `mtoc` and the command is `:Mtoc`. This repo
-is a fork of hedyhli/markdown-toc.nvim. The README's install instructions and
-`.github/FUNDING.yml` point at upstream.
+is a fork of hedyhli/markdown-toc.nvim and carries upstream's main in full. The
+README installs from this fork. `.github/FUNDING.yml` credits the upstream
+author.
 
-## Nothing runs until `setup()` is called
+## `:Mtoc` and the auto-update autocmd exist once the plugin loads
 
-There is no `plugin/` directory. `require("mtoc").setup()` registers `:Mtoc` and
-the auto-update autocmd. Before it runs, neither exists. lazy.nvim calls it when
-the spec sets `opts`. `update_config()` merges onto the current options rather
-than the defaults, and it is what a project-local `.nvim.lua` calls.
-`setup()` and `update_config()` each clear the `mtoc` augroup before
-registering the autocmd in it, so there is at most one. With
+`plugin/mtoc.lua` creates `:Mtoc` and registers the autocmd from the current
+options, so the plugin works with no `setup()` call. `setup()` and
+`update_config()` only change options. Each re-registers the autocmd, because
+`enabled`, `events` and `pattern` decide what it listens on. Registration
+clears the `mtoc` augroup first, so there is at most one autocmd. With
 `auto_update.enabled` false the group stays empty.
 
+`setup()` merges onto the defaults. `update_config()` merges onto the current
+options, and it is what a project-local `.nvim.lua` calls. A plugin manager
+sources `plugin/` before it calls `setup()`. A `setup()` made before the plugin
+loads leaves its options in place for `plugin/mtoc.lua` to register from.
+
+- `plugin/mtoc.lua` creates the command and registers the autocmd.
 - `init.lua` parses the command and performs insert, update and remove.
 - `toc.lua` finds the fences, scans the headings and builds the slugs.
 - `config.lua` holds the defaults and the merge.
 - `utils.lua` holds the buffer line helpers.
 - `types/mtoc.lua` holds LuaLS annotations and is never required.
 
-## Every internal require uses the slash spelling
+## Every module is required by its dotted name
 
-The modules require each other as `require("mtoc/config")`. Lua caches a module
-under the exact string passed to `require`. So `require("mtoc.config")` loads a
-second copy, whose `opts` are the defaults rather than the user's settings. A
-new module requires its siblings with the slash spelling. The README's examples
-use the dot spelling, which works only because they read `defaults`.
+The modules require each other as `require('mtoc.config')`, the spelling the
+README's examples use. Lua caches a module under the exact string passed to
+`require`. So `require('mtoc/config')` would load a second copy, whose `opts`
+are the defaults rather than the user's settings. The spec fails when any
+`mtoc/` name reaches `package.loaded`.
 
 ## Options take one shape after every merge
 
@@ -113,10 +119,26 @@ that ToC with `*` markers. The markdownlint hook's `--fix` then rewrites them to
 `-`, to match the README's other lists. With `toc_list.markers = "-"`, the
 regenerated ToC matches the committed one byte for byte.
 
-## There is no test suite, and the README is the fixture
+## The commit hook runs a headless spec, and the README is a second fixture
 
-`--clean` keeps a user config, and any installed copy of the plugin, out of the
-run:
+`tests/mtoc_spec.lua` loads the plugin in a headless Neovim with no user
+config. The commit hook runs it whenever a Lua file changes. CI runs a fixed
+list of lint hooks that excludes it. It checks:
+
+- `:Mtoc` and the autocmd exist with no `setup()`, and saving a markdown file
+  updates its ToC;
+- insert, update and remove of a fenced ToC;
+- `headings.exclude` as patterns and as a function, and `cycle_markers`;
+- `update_config()` merging onto the current options;
+- `setup()` leaving `defaults` unwritten, and re-registering the autocmd;
+- every module loaded once, by its dotted name.
+
+```sh
+nvim --headless -u NONE -l tests/mtoc_spec.lua
+```
+
+The README's own ToC is the second fixture. `--clean` keeps a user config, and
+any installed copy of the plugin, out of the run:
 
 ```sh
 copy=$(mktemp --suffix=.md) && cp README.md "$copy"
@@ -128,10 +150,11 @@ diff README.md "$copy"
 
 An empty diff means the README's ToC regenerates unchanged.
 
-## StyLua takes its indent from `.editorconfig`
+## StyLua takes its indent, width and quotes from `.editorconfig`
 
 There is no `stylua.toml`. StyLua reads `.editorconfig` only when it finds no
-`stylua.toml` or `.stylua.toml`, and its own default indent is tabs. A StyLua
-config added here has to state the two-space indent itself. `toc.lua` uses a
+`stylua.toml` or `.stylua.toml`. Its own defaults are tabs, 120 columns and
+double quotes, where `.editorconfig` gives two spaces, 140 columns and single
+quotes. A StyLua config added here has to state all three itself. `toc.lua` uses a
 `goto` label, which is Lua 5.2 and LuaJIT syntax. A StyLua built from crates.io
 with default features cannot parse it. The release binaries can.

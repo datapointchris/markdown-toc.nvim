@@ -202,6 +202,18 @@ repos:
           - "@johnnymorganz/stylua-bin@2.5.2"
         types: [lua]
 
+# > custom:after:lua - Plugin tests
+  - repo: local
+    hooks:
+      - id: mtoc-tests
+        name: mtoc tests (nvim)
+        entry: nvim --headless -u NONE -l tests/mtoc_spec.lua
+        language: system
+        types: [lua]
+        pass_filenames: false
+        always_run: false
+        stages: [pre-commit]
+
 # generated:github-actions - GitHub Actions
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7

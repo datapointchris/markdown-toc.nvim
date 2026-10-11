@@ -1,6 +1,6 @@
-local toc = require('mtoc/toc')
-local config = require('mtoc/config')
-local utils = require('mtoc/utils')
+local toc = require('mtoc.toc')
+local config = require('mtoc.config')
+local utils = require('mtoc.utils')
 
 local empty_or_nil = utils.empty_or_nil
 local falsey = utils.falsey
@@ -133,7 +133,9 @@ local function _debug_show_headings()
   utils.insert_lines(line, lines)
 end
 
-local function handle_command(opts)
+---Run `:Mtoc` with the arguments Neovim passes a user command's callback
+---@param opts table
+function M.run(opts)
   local fnopts = { bang = opts.bang }
   if opts.range == 2 then
     fnopts.range_start = opts.line1
@@ -178,20 +180,10 @@ local function handle_command(opts)
   end
 end
 
-local function setup_commands()
-  vim.api.nvim_create_user_command('Mtoc', handle_command, {
-    nargs = '?',
-    range = true,
-    bang = true,
-    complete = function()
-      return M.commands
-    end,
-  })
-end
-
 local augroup = 'mtoc'
 
-local function setup_autocmds()
+---Register the auto-update autocmd from the current options, replacing any earlier one
+function M.register_autocmds()
   local group = vim.api.nvim_create_augroup(augroup, { clear = true })
   local aup = config.opts.auto_update
   if not aup.enabled then
@@ -211,20 +203,18 @@ function M.remove_autocmds()
   vim.api.nvim_create_augroup(augroup, { clear = true })
 end
 
----Merge user opts with default opts and set up autocmds and commands
+---Merge user opts with default opts, and re-register the autocmd on them
 ---@param opts mtoc.UserConfig
 function M.setup(opts)
-  vim.g.mtoc_loaded = 1
   config.merge_opts(opts)
-  setup_autocmds()
-  setup_commands()
+  M.register_autocmds()
 end
 
----Merge user opts with default opts and reset autocmds based on new options
+---Merge user opts onto the current opts, and re-register the autocmd on them
 ---@param opts mtoc.UserConfig
 function M.update_config(opts)
   config.update_opts(opts)
-  setup_autocmds()
+  M.register_autocmds()
 end
 
 return M

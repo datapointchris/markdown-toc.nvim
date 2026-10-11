@@ -8,6 +8,10 @@ Generate and update table of contents list (with links) for markdown.
 
 Almost fully replaces vim-markdown-toc, written in 100% lua.
 
+A maintained fork of
+[hedyhli/markdown-toc.nvim](https://github.com/hedyhli/markdown-toc.nvim),
+with fixes to option merging, heading exclusion and marker cycling.
+
 - Supports GitHub Flavoured Markdown links by default. If you want to use
   another link format a better configuration structure for this is
   [planned](#todo), but for now you can set your own [formatter
@@ -41,12 +45,9 @@ Dog-fooding ;)
 
 Example for Lazy.nvim:
 
-- Using GitHub repo: `hedyhli/markdown-toc.nvim`
-- Using sourcehut repo: `url = "https://git.sr.ht/~hedy/markdown-toc.nvim"`
-
 ```lua
 {
-  "hedyhli/markdown-toc.nvim",
+  "datapointchris/markdown-toc.nvim",
   ft = "markdown",  -- Lazy load on markdown filetype
   cmd = { "Mtoc" }, -- Or, lazy load on "Mtoc" command
   opts = {
@@ -70,9 +71,9 @@ plugin spec for Lazy.nvim.
 require('mtoc').setup({})
 ```
 
-The setup call is **required**. It creates the `:Mtoc` command and the
-auto-update autocmd, and neither exists until it runs. Lazy.nvim makes the call
-when the plugin spec sets `opts`, even to an empty table.
+The setup call is optional. The `:Mtoc` command and the auto-update autocmd
+exist once the plugin loads, using the defaults below. Call `setup()` only to
+change an option. Lazy.nvim calls it when the plugin spec sets `opts`.
 
 ### Common configuration options
 
@@ -435,7 +436,6 @@ Here's an example `.nvim.lua` in the wild that makes use of
 ## TODO
 
 - Types
-- Tests
 - Lua API
 - Link style chooser
 
