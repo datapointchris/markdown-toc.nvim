@@ -1,23 +1,23 @@
-local toc = require("mtoc/toc")
-local config = require("mtoc/config")
-local utils = require("mtoc/utils")
+local toc = require('mtoc/toc')
+local config = require('mtoc/config')
+local utils = require('mtoc/utils')
 
 local empty_or_nil = utils.empty_or_nil
 local falsey = utils.falsey
 
 local M = {}
-M.commands = { "insert", "update", "remove" }
+M.commands = { 'insert', 'update', 'remove' }
 
 local function fmt_fence_start(fence)
-  return "<!-- " .. fence .. " -->"
+  return '<!-- ' .. fence .. ' -->'
 end
 local function fmt_fence_end(fence)
-  return "<!-- " .. fence .. " -->"
+  return '<!-- ' .. fence .. ' -->'
 end
 
 local function get_fences()
   local fences = config.opts.fences
-  if type(fences) == "boolean" and fences then
+  if type(fences) == 'boolean' and fences then
     fences = config.defaults.fences
   end
   return fences
@@ -42,11 +42,11 @@ local function insert_toc(opts)
     if use_fence then
       lines = {
         fmt_fence_start(fences.start_text),
-        "",
+        '',
         fmt_fence_end(fences.end_text),
       }
     else
-      vim.notify("No markdown headings", vim.log.levels.ERROR)
+      vim.notify('No markdown headings', vim.log.levels.ERROR)
       return
     end
   else
@@ -55,11 +55,11 @@ local function insert_toc(opts)
     if use_fence then
       local pad = config.opts.toc_list.padding_lines
       for _ = 1, pad do
-        table.insert(lines, 1, "")
+        table.insert(lines, 1, '')
       end
       table.insert(lines, 1, fmt_fence_start(fences.start_text))
       for _ = 1, pad do
-        table.insert(lines, "")
+        table.insert(lines, '')
       end
       table.insert(lines, fmt_fence_end(fences.end_text))
     end
@@ -75,20 +75,20 @@ local function remove_toc(not_found_ok)
   local locations = toc.find_fences(fstart, fend)
   if empty_or_nil(locations) or (falsey(locations.start) and falsey(locations.end_)) then
     if not not_found_ok then
-      vim.notify("No fences found!", vim.log.levels.ERROR)
+      vim.notify('No fences found!', vim.log.levels.ERROR)
     end
     return
   end
   if locations.start and falsey(locations.end_) then
-    vim.notify("No end fence found!", vim.log.levels.ERROR)
+    vim.notify('No end fence found!', vim.log.levels.ERROR)
     return
   end
   if falsey(locations.start) and locations.end_ then
-    vim.notify("No start fence found!", vim.log.levels.ERROR)
+    vim.notify('No start fence found!', vim.log.levels.ERROR)
     return
   end
   if locations.start > locations.end_ then
-    vim.notify("End fence found before start fence!", vim.log.levels.ERROR)
+    vim.notify('End fence found before start fence!', vim.log.levels.ERROR)
     return
   end
 
@@ -145,17 +145,17 @@ local function handle_command(opts)
   end
 
   local cmd = opts.fargs[1]
-  if cmd == "debug" then
+  if cmd == 'debug' then
     return _debug_show_headings()
   end
-  if cmd:sub(#cmd, #cmd) == "!" then
+  if cmd:sub(#cmd, #cmd) == '!' then
     fnopts.bang = true
     cmd = cmd:sub(1, #cmd - 1)
   end
 
   local found = false
   for _, v in ipairs(M.commands) do
-    if string.match(v, "^" .. cmd) then
+    if string.match(v, '^' .. cmd) then
       cmd = v
       found = true
       break
@@ -163,24 +163,24 @@ local function handle_command(opts)
   end
 
   if not found then
-    vim.notify("Unknown command " .. cmd, vim.log.levels.ERROR)
+    vim.notify('Unknown command ' .. cmd, vim.log.levels.ERROR)
     return
   end
 
-  if cmd == "insert" then
+  if cmd == 'insert' then
     return insert_toc(fnopts)
-  elseif cmd == "update" then
+  elseif cmd == 'update' then
     return update_toc(fnopts, false)
-  elseif cmd == "remove" then
+  elseif cmd == 'remove' then
     return remove_toc()
   else
-    vim.notify("INTERNAL ERROR: Unhandled command " .. cmd, vim.log.levels.ERROR)
+    vim.notify('INTERNAL ERROR: Unhandled command ' .. cmd, vim.log.levels.ERROR)
   end
 end
 
 local function setup_commands()
-  vim.api.nvim_create_user_command("Mtoc", handle_command, {
-    nargs = "?",
+  vim.api.nvim_create_user_command('Mtoc', handle_command, {
+    nargs = '?',
     range = true,
     bang = true,
     complete = function()
@@ -189,7 +189,7 @@ local function setup_commands()
   })
 end
 
-local augroup = "mtoc"
+local augroup = 'mtoc'
 
 local function setup_autocmds()
   local group = vim.api.nvim_create_augroup(augroup, { clear = true })

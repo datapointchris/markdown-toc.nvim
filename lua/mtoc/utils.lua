@@ -31,11 +31,11 @@ end
 ---@param obj any
 ---@return boolean
 function M.falsey(obj)
-  if type(obj) == "table" then
+  if type(obj) == 'table' then
     return M.empty_or_nil(obj)
-  elseif type(obj) == "string" then
-    return obj == ""
-  elseif type(obj) == "number" then
+  elseif type(obj) == 'string' then
+    return obj == ''
+  elseif type(obj) == 'number' then
     return obj == 0
   end
   return not obj

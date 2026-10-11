@@ -1,4 +1,4 @@
-local config = require("mtoc/config")
+local config = require('mtoc/config')
 
 local M = {}
 M.link_formatters = {}
@@ -10,30 +10,30 @@ function M.link_formatters.gfm(existing_headings, heading)
   heading = vim.fn.tolower(heading)
 
   -- Strip leading and trailing underscores
-  heading = heading:gsub("^_+", ""):gsub("_+$", "")
+  heading = heading:gsub('^_+', ''):gsub('_+$', '')
 
   -- Strip non-alphanumric non-latin-extended, and non-CJK characters.
   -- Lua doesn't handle unicode very well.
   heading = vim.fn.substitute(
     heading,
-    [[[^[:alnum:]\u00C0-\u00FF\u0400-\u04ff\u4e00-\u9fbf\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF _-]] .. "]",
-    "",
-    "g"
+    [[[^[:alnum:]\u00C0-\u00FF\u0400-\u04ff\u4e00-\u9fbf\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF _-]] .. ']',
+    '',
+    'g'
   )
 
   -- Convert all spaces to dashes
-  heading = heading:gsub(" ", "-")
+  heading = heading:gsub(' ', '-')
 
   local key = heading
   local heading_str = heading
 
-  if heading_str == "" then
-    key = "<NULL>"
+  if heading_str == '' then
+    key = '<NULL>'
   end
 
   if existing_headings[key] ~= nil then
     existing_headings[key] = existing_headings[key] + 1
-    heading_str = heading_str .. "-" .. existing_headings[key]
+    heading_str = heading_str .. '-' .. existing_headings[key]
   else
     existing_headings[key] = 0
   end
@@ -50,7 +50,7 @@ local function _find_fences(fstart, fend, lines)
       break
     end
 
-    if string.find(line, "^```") then
+    if string.find(line, '^```') then
       in_code = not in_code
     else
       if not in_code then
@@ -72,7 +72,7 @@ local function _find_fences_same(fence, lines)
   local in_code = false
   local locations = {}
   for i, line in ipairs(lines) do
-    if string.find(line, "^```") then
+    if string.find(line, '^```') then
       in_code = not in_code
     else
       if not in_code then
@@ -119,7 +119,7 @@ function M.gen_toc_list(start_from)
   ---@type fun(heading: string): boolean
   local is_excluded
   local exclude = config.opts.headings.exclude
-  if type(exclude) == "function" then
+  if type(exclude) == 'function' then
     is_excluded = exclude
   else
     is_excluded = function(heading)
@@ -133,7 +133,7 @@ function M.gen_toc_list(start_from)
   end
 
   local indent_size = toc_config.indent_size
-  if type(indent_size) == "function" then
+  if type(indent_size) == 'function' then
     indent_size = indent_size()
   end
 
@@ -148,7 +148,7 @@ function M.gen_toc_list(start_from)
   local headings = {}
 
   for _, line in ipairs(vim.api.nvim_buf_get_lines(0, start_from, -1, false)) do
-    if string.find(line, "^```") then
+    if string.find(line, '^```') then
       is_inside_code_block = not is_inside_code_block
     end
     if is_inside_code_block then
@@ -161,7 +161,7 @@ function M.gen_toc_list(start_from)
     end
 
     -- Strip embedded links in TOC: both in name and link.
-    name = name:gsub("%[(.-)%]%(.-%)", "%1")
+    name = name:gsub('%[(.-)%]%(.-%)', '%1')
 
     -- An excluded heading still counts toward duplicate slugs, as it does in
     -- GitHub's anchors.
@@ -197,7 +197,7 @@ function M.gen_toc_list(start_from)
   for _, fmt_info in ipairs(headings) do
     -- Ensure lowest depth is 0
     local depth = fmt_info.depth - min_depth
-    fmt_info.indent = (" "):rep(depth * indent_size)
+    fmt_info.indent = (' '):rep(depth * indent_size)
     fmt_info.marker = markers[depth % #markers + 1]
     local item = item_formatter(fmt_info, toc_config.item_format_string)
     table.insert(lines, item)
