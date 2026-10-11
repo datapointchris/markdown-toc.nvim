@@ -16,10 +16,12 @@ A maintained fork of hedyhli/markdown-toc.nvim
 <https://github.com/hedyhli/markdown-toc.nvim>, with fixes to option merging,
 heading exclusion and marker cycling.
 
-- Supports GitHub Flavoured Markdown links by default. If you want to use
-    another link format a better configuration structure for this is
-    planned, but for now you can set your own formatter
-    function.
+- Spells links the way GitHub does by default, or the way Forgejo and Codeberg
+    do with `toc_list.link_formatter = "forgejo"`. Any other format takes your
+    own formatter function.
+- A link in a heading is listed as its text. That includes an Obsidian wiki
+    link, `[[Note]]` or `[[Note|alias]]`, which is listed as its alias where it
+    has one.
 - You can disable fences but keep the updating feature by manually selecting
     your table of contents in visual mode, then running `:Mtoc`
 
@@ -158,6 +160,16 @@ Cycling of markers produces a ToC list like this:
       + [Second sub heading](#second-sub-heading)
 <
 
+Links for a README that Codeberg or another Forgejo instance renders, where `##
+Version 1.2.0` is anchored as `#version-1-2-0` rather than GitHub’s
+`#version-120`:
+
+>lua
+    toc_list = {
+      link_formatter = "forgejo",
+    },
+<
+
 To customize the indent size please see full configurations
 |mtoc-full-configuration|.
 
@@ -183,12 +195,17 @@ These shortcuts are shown in `[square brackets]` below.
     If range not provided, update ToC if fences are found.
     If range provided, replace the range with newly generated ToC. If fences are
     enabled and bang provided, also inserts fences.
+    A ToC that is already current is left untouched, so the buffer is not modified
+    and no undo entry is made.
     It may print errors when no fences are found, start-end fences are not matched,
     or end found before start.
 - `:Mtoc r[emove]`
     Remove ToC if fences are found.
     It may print errors when no fences are found, start-end fences are not matched,
     or end found before start.
+- `:Mtoc t[oggle]`
+    Turn the ToC update on save off or on, by flipping `auto_update.enabled`. The
+    other commands work either way.
 
 
 FULL CONFIGURATION                                   *mtoc-full-configuration*
@@ -206,6 +223,9 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         -- The first capture is for heading level ('###') and second is for the heading
         -- title.
         pattern = "^(#+)%s+(.+)$",
+        -- The shallowest and deepest heading levels listed, 1 for '#' to 6 for '######'.
+        min_level = 1,
+        max_level = 6,
       },
 
       -- Config relating to the style and format of the ToC
@@ -249,6 +269,11 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
 
         -- Add padding (blank lines) before and after the TOC
         padding_lines = 1,
+
+        -- How each heading's anchor is spelled. "gfm" matches GitHub, which drops
+        -- punctuation. "forgejo" matches Forgejo and Codeberg, which turn each run
+        -- of punctuation and spaces into one dash.
+        link_formatter = "gfm",
       },
 
       -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
@@ -271,6 +296,8 @@ FULL CONFIGURATION                                   *mtoc-full-configuration*
         -- This allows the ToC to be refreshed silently on save for any markdown file.
         -- The refresh operation uses `Mtoc update` and does NOT create the ToC if
         -- it does not exist.
+        -- A refresh that changes the ToC joins the undo step of the edit before
+        -- it, so one `u` takes back both.
         events = { "BufWritePre" },
         pattern = "*.{md,mdown,mkd,mkdn,markdown,mdwn}",
       },
@@ -377,11 +404,14 @@ Ensure all heading names are in Title Case when listed in ToC:
 Remove `:lower()` to avoid decapitalizing already capitalized rest of words
 (like the case for acronyms).
 
-Include only 2nd-level headings
+List only 2nd- and 3rd-level headings, leaving the title and anything deeper
+out of a long document’s ToC. A heading left out still counts when a repeated
+heading’s link takes its `-1` suffix:
 
 >lua
     headings = {
-      pattern = "^(##)%s+(.+)$",
+      min_level = 2,
+      max_level = 3,
     }
 <
 
