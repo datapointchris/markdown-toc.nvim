@@ -140,12 +140,10 @@ function M.gen_toc_list(start_from)
   local item_formatter = toc_config.item_formatter
 
   local is_inside_code_block = false
-  local prev_depth = 1
   local lines = {}
   local all_heading_links = {}
-
-  local min_depth = math.huge
-  local headings = {}
+  -- Levels of the headings still open above the next entry, outermost first.
+  local open_levels = {}
 
   for _, line in ipairs(vim.api.nvim_buf_get_lines(0, start_from, -1, false)) do
     if string.find(line, '^```') then
@@ -170,37 +168,23 @@ function M.gen_toc_list(start_from)
       goto nextline
     end
 
-    local depth = #prefix
-
-    if prev_depth + 1 < depth then
-      depth = prev_depth + 1
+    local level = #prefix
+    while #open_levels > 0 and open_levels[#open_levels] >= level do
+      table.remove(open_levels)
     end
-    prev_depth = depth
-
-    depth = depth - 1
+    local depth = #open_levels
+    table.insert(open_levels, level)
 
     local fmt_info = {
       name = name,
       link = link,
       depth = depth,
       raw_line = line,
+      indent = (' '):rep(depth * indent_size),
+      marker = markers[depth % #markers + 1],
     }
-
-    if depth < min_depth then
-      min_depth = depth
-    end
-    table.insert(headings, fmt_info)
+    table.insert(lines, item_formatter(fmt_info, toc_config.item_format_string))
     ::nextline::
-  end
-
-  -- Write TOC
-  for _, fmt_info in ipairs(headings) do
-    -- Ensure lowest depth is 0
-    local depth = fmt_info.depth - min_depth
-    fmt_info.indent = (' '):rep(depth * indent_size)
-    fmt_info.marker = markers[depth % #markers + 1]
-    local item = item_formatter(fmt_info, toc_config.item_format_string)
-    table.insert(lines, item)
   end
 
   return lines

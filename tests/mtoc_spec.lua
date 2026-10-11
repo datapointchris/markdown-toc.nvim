@@ -76,6 +76,43 @@ check('saving a markdown file updates its ToC without setup()', vim.tbl_contains
 vim.cmd('bwipeout!')
 vim.fn.delete(saved)
 
+local function toc_of(lines)
+  scratch(lines, 1)
+  return require('mtoc.toc').gen_toc_list(0)
+end
+
+mtoc.setup({})
+check(
+  'two h3s with no h2 above them are siblings',
+  vim.deep_equal(toc_of({ '### First H3', '### Second H3' }), { '* [First H3](#first-h3)', '* [Second H3](#second-h3)' })
+)
+check(
+  'two h3s under an h2 nest once',
+  vim.deep_equal(
+    toc_of({ '## Section', '### Subsection 1', '### Subsection 2' }),
+    { '* [Section](#section)', '  * [Subsection 1](#subsection-1)', '  * [Subsection 2](#subsection-2)' }
+  )
+)
+check(
+  'mixed levels nest by the headings above them',
+  vim.deep_equal(toc_of({ '# Title', '## Section 1', '### Subsection 1.1', '### Subsection 1.2', '## Section 2', '### Subsection 2.1' }), {
+    '* [Title](#title)',
+    '  * [Section 1](#section-1)',
+    '    * [Subsection 1.1](#subsection-11)',
+    '    * [Subsection 1.2](#subsection-12)',
+    '  * [Section 2](#section-2)',
+    '    * [Subsection 2.1](#subsection-21)',
+  })
+)
+check(
+  'a skipped level nests one deeper, and its sibling stays beside it',
+  vim.deep_equal(toc_of({ '## A', '#### B', '#### C', '### D' }), { '* [A](#a)', '  * [B](#b)', '  * [C](#c)', '  * [D](#d)' })
+)
+check(
+  'a shallower heading after a deeper first one sits at the top',
+  vim.deep_equal(toc_of({ '### A', '## B' }), { '* [A](#a)', '* [B](#b)' })
+)
+
 mtoc.setup({ headings = { exclude = { '^Sub$' } } })
 scratch(document, 2)
 vim.cmd('Mtoc insert')

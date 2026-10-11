@@ -57,14 +57,15 @@ Full Configuration block, which is also the vimdoc.
 ToC order is declaration order, so `gen_toc_list` builds no tree. The scan
 starts below the cursor line, or below the old ToC's position on update. A
 title above the ToC is therefore left out of it, unless `headings.before_toc`
-is set. A heading more than one level below the previous one is clamped to one
-level below it. The shallowest level found is then indented to zero. Each
-entry's marker is picked from `toc_list.markers` by that indented level, which
-is what `cycle_markers` cycles.
+is set. An entry's depth is the number of headings above it still open at a
+lower level, kept as a stack of levels. So two h3s with no h2 above them are
+siblings at the top, and an h4 directly under an h2 sits one level in. Each
+entry's marker is picked from `toc_list.markers` by that depth, which is what
+`cycle_markers` cycles.
 
 A heading `headings.exclude` matches is dropped after its slug is built. It
 still counts toward the duplicate suffixes, as it does in GitHub's anchors. It
-does not count as the previous level for the clamp. Setext headings are not
+opens no level for later headings to nest under. Setext headings are not
 recognized.
 
 Links inside a heading are reduced to their text before the name and the slug
