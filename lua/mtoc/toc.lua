@@ -127,9 +127,11 @@ end
 ---Returns a list of strings representing the lines of the ToC list.
 ---Calls both link formatter and item formatter based on config.
 ---@param start_from integer|nil The line number before which, headings will be ignored
+---@param buffer string[]|nil The lines to scan, in place of the current buffer's
 ---@return string[] lines List of lines to be inserted as ToC
-function M.gen_toc_list(start_from)
+function M.gen_toc_list(start_from, buffer)
   start_from = start_from or 0
+  buffer = buffer or vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local toc_config = config.opts.toc_list
 
   ---@type string|string[]
@@ -175,7 +177,7 @@ function M.gen_toc_list(start_from)
   -- Levels of the headings still open above the next entry, outermost first.
   local open_levels = {}
 
-  for _, line in ipairs(vim.api.nvim_buf_get_lines(0, start_from, -1, false)) do
+  for _, line in ipairs(vim.list_slice(buffer, start_from + 1)) do
     if string.find(line, '^```') then
       is_inside_code_block = not is_inside_code_block
     end

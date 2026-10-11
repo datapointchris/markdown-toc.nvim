@@ -215,6 +215,9 @@ These shortcuts are shown in `[square brackets]` below.
   If range provided, replace the range with newly generated ToC. If fences are
   enabled and bang provided, also inserts fences.
 
+  A ToC that is already current is left untouched, so the buffer is not
+  modified and no undo entry is made.
+
   It may print errors when no fences are found, start-end fences are not
   matched, or end found before start.
 
@@ -313,6 +316,8 @@ These shortcuts are shown in `[square brackets]` below.
     -- This allows the ToC to be refreshed silently on save for any markdown file.
     -- The refresh operation uses `Mtoc update` and does NOT create the ToC if
     -- it does not exist.
+    -- A refresh that changes the ToC joins the undo step of the edit before
+    -- it, so one `u` takes back both.
     events = { "BufWritePre" },
     pattern = "*.{md,mdown,mkd,mkdn,markdown,mdwn}",
   },

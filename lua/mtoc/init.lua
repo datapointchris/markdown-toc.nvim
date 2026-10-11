@@ -23,53 +23,85 @@ local function get_fences()
   return fences
 end
 
-local function insert_toc(opts)
-  if not opts then
-    opts = {}
-  end
-
-  local insert_at = opts.line or utils.current_line()
+---The lines of a ToC placed below line `insert_at` of `buffer`, fenced unless `disable_fence`.
+---nil where there are no headings and no fences to insert in their place.
+---@param buffer string[]
+---@param insert_at integer
+---@param disable_fence boolean|nil
+---@return string[]|nil
+local function render_toc(buffer, insert_at, disable_fence)
   local scan_from = insert_at
   if config.opts.headings.before_toc then
     scan_from = 0
   end
 
-  local lines = {}
   local fences = get_fences()
-  local use_fence = fences.enabled and not opts.disable_fence
+  local use_fence = fences.enabled and not disable_fence
 
-  lines = toc.gen_toc_list(scan_from)
+  local lines = toc.gen_toc_list(scan_from, buffer)
   if empty_or_nil(lines) then
-    if use_fence then
-      lines = {
-        fmt_fence_start(fences.start_text),
-        '',
-        fmt_fence_end(fences.end_text),
-      }
-    else
-      vim.notify('No markdown headings', vim.log.levels.ERROR)
-      return
+    if not use_fence then
+      return nil
     end
-  else
-    lines = config.opts.toc_list.post_processor(lines)
-
-    if use_fence then
-      local pad = config.opts.toc_list.padding_lines
-      for _ = 1, pad do
-        table.insert(lines, 1, '')
-      end
-      table.insert(lines, 1, fmt_fence_start(fences.start_text))
-      for _ = 1, pad do
-        table.insert(lines, '')
-      end
-      table.insert(lines, fmt_fence_end(fences.end_text))
-    end
+    return { fmt_fence_start(fences.start_text), '', fmt_fence_end(fences.end_text) }
   end
 
+  lines = config.opts.toc_list.post_processor(lines)
+  if use_fence then
+    local pad = config.opts.toc_list.padding_lines
+    for _ = 1, pad do
+      table.insert(lines, 1, '')
+    end
+    table.insert(lines, 1, fmt_fence_start(fences.start_text))
+    for _ = 1, pad do
+      table.insert(lines, '')
+    end
+    table.insert(lines, fmt_fence_end(fences.end_text))
+  end
+  return lines
+end
+
+local function insert_toc(opts)
+  opts = opts or {}
+  local insert_at = opts.line or utils.current_line()
+  local lines = render_toc(vim.api.nvim_buf_get_lines(0, 0, -1, false), insert_at, opts.disable_fence)
+  if not lines then
+    vim.notify('No markdown headings', vim.log.levels.ERROR)
+    return
+  end
   utils.insert_lines(insert_at, lines)
 end
 
-local function remove_toc(not_found_ok)
+---Replace lines `s` to `e` (1-based, inclusive) with a ToC generated as though they were gone.
+---A ToC equal to those lines leaves the buffer untouched, so it records no change and no undo entry.
+---`opts.join` merges the change into the previous undo block where Neovim allows it, which it
+---refuses straight after an undo.
+---@param s integer
+---@param e integer
+---@param opts { disable_fence: boolean|nil, join: boolean|nil }
+local function replace_toc(s, e, opts)
+  local buffer = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local old = vim.list_slice(buffer, s, e)
+  local rest = vim.list_extend(vim.list_slice(buffer, 1, s - 1), vim.list_slice(buffer, e + 1))
+
+  local lines = render_toc(rest, s - 1, opts.disable_fence)
+  if not lines then
+    vim.notify('No markdown headings', vim.log.levels.ERROR)
+    return
+  end
+  if vim.deep_equal(old, lines) then
+    return
+  end
+  if opts.join then
+    pcall(vim.cmd, 'silent undojoin')
+  end
+  vim.api.nvim_buf_set_lines(0, s - 1, e, true, lines)
+end
+
+---Line numbers of the ToC's fences, or nil after reporting why there are none.
+---@param not_found_ok boolean|nil Stay silent when neither fence is found
+---@return { start: integer, end_: integer }|nil
+local function locate_toc(not_found_ok)
   local fences = get_fences()
   local fstart, fend = fmt_fence_start(fences.start_text), fmt_fence_end(fences.end_text)
 
@@ -92,40 +124,38 @@ local function remove_toc(not_found_ok)
     vim.notify('End fence found before start fence!', vim.log.levels.ERROR)
     return
   end
-
-  utils.delete_lines(locations.start, locations.end_)
-
   return locations
+end
+
+local function remove_toc()
+  local locations = locate_toc()
+  if locations then
+    utils.delete_lines(locations.start, locations.end_)
+  end
 end
 
 local function update_toc(opts, fail_ok)
   if opts.range_start and opts.range_end then
-    utils.delete_lines(opts.range_start, opts.range_end)
-    local use_fence = opts.bang
-    return insert_toc({ line = opts.range_start - 1, disable_fence = not use_fence })
+    return replace_toc(opts.range_start, opts.range_end, { disable_fence = not opts.bang, join = opts.join })
   end
 
-  local locations = remove_toc(fail_ok)
-  if empty_or_nil(locations) then
+  local locations = locate_toc(fail_ok)
+  if not locations then
     return
   end
-  opts.line = locations.start - 1
-  return insert_toc(opts)
+  return replace_toc(locations.start, locations.end_, opts)
 end
 
-local function update_or_remove_toc(opts)
+local function update_or_insert_toc(opts)
   if opts.range_start and opts.range_end then
     return update_toc(opts)
   end
 
-  local locations = remove_toc(true)
-  opts = opts or {}
-  if empty_or_nil(locations) then
-    opts.line = nil
+  local locations = locate_toc(true)
+  if not locations then
     return insert_toc(opts)
   end
-  opts.line = locations.start - 1
-  return insert_toc(opts)
+  return replace_toc(locations.start, locations.end_, opts)
 end
 
 local function _debug_show_headings()
@@ -144,7 +174,7 @@ function M.run(opts)
   end
 
   if empty_or_nil(opts.fargs) then
-    return update_or_remove_toc(fnopts)
+    return update_or_insert_toc(fnopts)
   end
 
   local cmd = opts.fargs[1]
@@ -194,7 +224,7 @@ function M.register_autocmds()
     group = group,
     pattern = aup.pattern,
     callback = function()
-      update_toc({}, true)
+      update_toc({ join = true }, true)
     end,
   })
 end

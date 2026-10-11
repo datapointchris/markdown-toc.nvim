@@ -76,6 +76,48 @@ check('saving a markdown file updates its ToC without setup()', vim.tbl_contains
 vim.cmd('bwipeout!')
 vim.fn.delete(saved)
 
+local function close_undo_block()
+  vim.cmd('let &undolevels = &undolevels')
+end
+local function undo_seq()
+  return vim.fn.undotree().seq_last
+end
+
+local undone = vim.fn.tempname() .. '.md'
+vim.cmd.edit(undone)
+vim.api.nvim_buf_set_lines(0, 0, -1, false, document)
+vim.api.nvim_win_set_cursor(0, { 2, 0 })
+vim.cmd('Mtoc insert')
+vim.cmd('silent write')
+close_undo_block()
+local seq, tick = undo_seq(), vim.b.changedtick
+vim.cmd('silent write')
+check('saving with the ToC current leaves no undo entry', undo_seq() == seq and vim.b.changedtick == tick)
+vim.cmd('Mtoc update')
+check(':Mtoc update with the ToC current changes nothing', vim.b.changedtick == tick)
+
+local before_edit = buffer_lines()
+vim.api.nvim_buf_set_lines(0, -1, -1, false, { '## Later' })
+close_undo_block()
+local edit_seq = undo_seq()
+vim.cmd('silent write')
+check(
+  'saving joins the ToC change to the edit that caused it',
+  undo_seq() == edit_seq and vim.tbl_contains(buffer_lines(), '* [Later](#later)')
+)
+vim.cmd('silent undo')
+check('one undo takes back the edit and its ToC change together', vim.deep_equal(buffer_lines(), before_edit))
+
+vim.api.nvim_buf_set_lines(0, -1, -1, false, { '## Again' })
+close_undo_block()
+vim.cmd('Mtoc update')
+close_undo_block()
+vim.cmd('silent undo')
+vim.cmd('silent write')
+check('a save straight after an undo still updates the ToC', vim.tbl_contains(buffer_lines(), '* [Again](#again)'))
+vim.cmd('bwipeout!')
+vim.fn.delete(undone)
+
 local function toc_of(lines)
   scratch(lines, 1)
   return require('mtoc.toc').gen_toc_list(0)

@@ -96,8 +96,22 @@ not recognized, so a `#` line inside one reads as a heading.
 
 `utils.delete_lines(s, e)` takes 1-based inclusive line numbers.
 `utils.insert_lines(n, lines)` and `gen_toc_list(n)` both act below line `n`.
-So a ToC removed from line `s` is re-inserted at `s - 1`. `headings.before_toc`
+So a ToC at lines `s` to `e` is regenerated below `s - 1`. `headings.before_toc`
 moves where the scan starts to the top of the buffer, never where the ToC goes.
+
+## An update writes only a ToC that differs
+
+`replace_toc` renders the new ToC from the buffer's lines with the old ToC cut
+out, then compares it with the old one. An equal ToC is never written, so a
+save with the ToC current leaves `changedtick` and the undo tree alone. Every
+update and every range `:Mtoc` goes through it. Only `insert` and `remove`
+write unconditionally.
+
+The save-time update passes `join`, which runs `undojoin` before it writes. So
+the ToC change lands in the undo block of the edit that caused it, and one `u`
+takes back both. Neovim refuses `undojoin` straight after an undo with E790.
+The `pcall` around it lets that change take its own undo entry instead. A
+manual `:Mtoc update` never joins, so it is its own undo step.
 
 ## A subcommand abbreviation runs the first prefix match
 
@@ -138,6 +152,8 @@ list of lint hooks that excludes it. It checks:
 - `:Mtoc` and the autocmd exist with no `setup()`, and saving a markdown file
   updates its ToC;
 - insert, update and remove of a fenced ToC;
+- an update of a current ToC changing nothing, a save-time change undone with
+  its edit, and a save straight after an undo;
 - `headings.exclude` as patterns and as a function, and `cycle_markers`;
 - `update_config()` merging onto the current options;
 - `setup()` leaving `defaults` unwritten, and re-registering the autocmd;
