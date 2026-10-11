@@ -195,7 +195,7 @@ mtoc.setup({ headings = { exclude = { '^Sub$' } } })
 scratch(document, 2)
 vim.cmd('Mtoc insert')
 local excluded = { '* [One](#one)', '  * [Deep](#deep)', '* [Two](#two)' }
-check('headings.exclude drops a match, which leaves no level for the clamp', vim.deep_equal(buffer_lines(), with_toc(excluded)))
+check('headings.exclude drops a match, which opens no level to nest under', vim.deep_equal(buffer_lines(), with_toc(excluded)))
 
 mtoc.setup({
   headings = {

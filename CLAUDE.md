@@ -154,6 +154,10 @@ list of lint hooks that excludes it. It checks:
 - insert, update and remove of a fenced ToC;
 - an update of a current ToC changing nothing, a save-time change undone with
   its edit, and a save straight after an undo;
+- nesting by the headings still open above an entry, including skipped levels;
+- the `gfm` and `forgejo` slugs, and wiki links reduced to their text or alias;
+- `headings.min_level` and `max_level`, and `headings.before_toc` on insert and
+  update;
 - `headings.exclude` as patterns and as a function, and `cycle_markers`;
 - `update_config()` merging onto the current options;
 - `setup()` leaving `defaults` unwritten, and re-registering the autocmd;
