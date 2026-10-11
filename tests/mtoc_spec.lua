@@ -167,6 +167,18 @@ vim.cmd('Mtoc insert')
 local by_function = { '* [One](#one)', '  * [Sub](#sub)', '* [Two](#two)' }
 check('headings.exclude takes a function', vim.deep_equal(buffer_lines(), with_toc(by_function)))
 
+mtoc.setup({ headings = { before_toc = true } })
+scratch(document, 2)
+vim.cmd('Mtoc insert')
+local with_title = { '* [Title](#title)', '  * [One](#one)', '    * [Sub](#sub)', '      * [Deep](#deep)', '  * [Two](#two)' }
+check('before_toc lists the title and inserts at the cursor', vim.deep_equal(buffer_lines(), with_toc(with_title)))
+vim.api.nvim_buf_set_lines(0, -1, -1, false, { '## Three' })
+vim.cmd('Mtoc update')
+check(
+  'before_toc updates the ToC where it is',
+  buffer_lines()[3] == '<!-- mtoc-start -->' and vim.tbl_contains(buffer_lines(), '  * [Three](#three)')
+)
+
 mtoc.setup({ toc_list = { markers = { '*', '+', '-' }, cycle_markers = true } })
 scratch(document, 2)
 vim.cmd('Mtoc insert')

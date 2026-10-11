@@ -96,7 +96,8 @@ not recognized, so a `#` line inside one reads as a heading.
 
 `utils.delete_lines(s, e)` takes 1-based inclusive line numbers.
 `utils.insert_lines(n, lines)` and `gen_toc_list(n)` both act below line `n`.
-So a ToC removed from line `s` is re-inserted at `s - 1`.
+So a ToC removed from line `s` is re-inserted at `s - 1`. `headings.before_toc`
+moves where the scan starts to the top of the buffer, never where the ToC goes.
 
 ## A subcommand abbreviation runs the first prefix match
 

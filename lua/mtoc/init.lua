@@ -28,16 +28,17 @@ local function insert_toc(opts)
     opts = {}
   end
 
-  local start = opts.line or utils.current_line()
+  local insert_at = opts.line or utils.current_line()
+  local scan_from = insert_at
   if config.opts.headings.before_toc then
-    start = 0
+    scan_from = 0
   end
 
   local lines = {}
   local fences = get_fences()
   local use_fence = fences.enabled and not opts.disable_fence
 
-  lines = toc.gen_toc_list(start)
+  lines = toc.gen_toc_list(scan_from)
   if empty_or_nil(lines) then
     if use_fence then
       lines = {
@@ -65,7 +66,7 @@ local function insert_toc(opts)
     end
   end
 
-  utils.insert_lines(start, lines)
+  utils.insert_lines(insert_at, lines)
 end
 
 local function remove_toc(not_found_ok)
