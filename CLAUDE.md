@@ -11,7 +11,9 @@ author.
 `plugin/mtoc.lua` creates `:Mtoc` and registers the autocmd from the current
 options, so the plugin works with no `setup()` call. `setup()` and
 `update_config()` only change options. Each re-registers the autocmd, because
-`enabled`, `events` and `pattern` decide what it listens on. Registration
+`enabled`, `events` and `pattern` decide what it listens on. `:Mtoc toggle`
+flips `auto_update.enabled` and re-registers it the same way. `enabled` gates
+only the autocmd, so `insert`, `update` and `remove` work with it off. Registration
 clears the `mtoc` augroup first, so there is at most one autocmd. With
 `auto_update.enabled` false the group stays empty.
 
@@ -115,8 +117,8 @@ manual `:Mtoc update` never joins, so it is its own undo step.
 
 ## A subcommand abbreviation runs the first prefix match
 
-`handle_command` matches the typed word as a prefix against `M.commands`, in
-order, and runs the first hit. Nothing detects ambiguity. A new subcommand
+`M.run` matches the typed word as a prefix against `M.commands`, in order, and
+runs the first hit. Nothing detects ambiguity. A new subcommand
 sharing a leading letter with an existing one changes what the short form runs.
 `M.commands` is also the completion list. `:Mtoc debug` is handled before the
 match and is not in that list. It inserts the bare generated list below the
@@ -161,6 +163,8 @@ list of lint hooks that excludes it. It checks:
 - `headings.exclude` as patterns and as a function, and `cycle_markers`;
 - `update_config()` merging onto the current options;
 - `setup()` leaving `defaults` unwritten, and re-registering the autocmd;
+- `:Mtoc toggle` removing and restoring the autocmd, with `insert` still
+  working while it is off;
 - every module loaded once, by its dotted name.
 
 ```sh

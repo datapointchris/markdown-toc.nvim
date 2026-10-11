@@ -228,6 +228,11 @@ These shortcuts are shown in `[square brackets]` below.
   It may print errors when no fences are found, start-end fences are not
   matched, or end found before start.
 
+- `:Mtoc t[oggle]`
+
+  Turn the ToC update on save off or on, by flipping `auto_update.enabled`.
+  The other commands work either way.
+
 ## Full Configuration
 
 ```lua

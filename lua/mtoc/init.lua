@@ -6,7 +6,7 @@ local empty_or_nil = utils.empty_or_nil
 local falsey = utils.falsey
 
 local M = {}
-M.commands = { 'insert', 'update', 'remove' }
+M.commands = { 'insert', 'update', 'remove', 'toggle' }
 
 local function fmt_fence_start(fence)
   return '<!-- ' .. fence .. ' -->'
@@ -158,6 +158,13 @@ local function update_or_insert_toc(opts)
   return replace_toc(locations.start, locations.end_, opts)
 end
 
+local function toggle_auto_update()
+  local aup = config.opts.auto_update
+  aup.enabled = not aup.enabled
+  M.register_autocmds()
+  vim.notify(('Auto Update: %s'):format(aup.enabled and 'Enabled' or 'Disabled'), vim.log.levels.INFO, { title = 'markdown-toc' })
+end
+
 local function _debug_show_headings()
   local line = utils.current_line()
   local lines = toc.gen_toc_list(line)
@@ -206,6 +213,8 @@ function M.run(opts)
     return update_toc(fnopts, false)
   elseif cmd == 'remove' then
     return remove_toc()
+  elseif cmd == 'toggle' then
+    return toggle_auto_update()
   else
     vim.notify('INTERNAL ERROR: Unhandled command ' .. cmd, vim.log.levels.ERROR)
   end

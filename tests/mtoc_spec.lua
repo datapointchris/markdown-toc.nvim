@@ -245,6 +245,15 @@ check('setup() re-registers the autocmd on its events', vim.deep_equal(events(),
 mtoc.setup({ auto_update = false })
 check('auto_update = false leaves no autocmd', #events() == 0)
 
+mtoc.setup({})
+vim.cmd('Mtoc toggle')
+check(':Mtoc toggle turns auto-update off', #events() == 0)
+scratch(document, 2)
+vim.cmd('Mtoc insert')
+check(':Mtoc insert still works with auto-update off', vim.deep_equal(buffer_lines(), with_toc(default_toc)))
+vim.cmd('Mtoc toggle')
+check(':Mtoc toggle turns auto-update back on', vim.deep_equal(events(), { 'BufWritePre' }))
+
 local slash_copies = {}
 for name in pairs(package.loaded) do
   if name:match('^mtoc/') then
