@@ -74,6 +74,13 @@ Vim's regex. Lua's string library works on bytes and mangles non-ASCII headings.
 A new text transform belongs on `vim.fn` for the same reason. A repeated slug
 takes a `-1`, `-2` suffix, as GitHub's anchors do.
 
+`toc_list.link_formatter` names one of `toc.link_formatters`. `gfm` follows
+GitHub, which drops punctuation and turns each space into a dash. `forgejo`
+follows Forgejo's `CleanValue`, which keeps letters, digits and underscores and
+turns each run of anything else into one dash, so `1.29.0` becomes `1-29-0`.
+Both treat the same Unicode ranges as letters. A name with no formatter raises
+an error listing the ones there are.
+
 ## Fences and code blocks are matched as plain text
 
 A fence is the configured text wrapped in `<!-- -->`, found by plain substring

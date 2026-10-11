@@ -113,6 +113,23 @@ check(
   vim.deep_equal(toc_of({ '### A', '## B' }), { '* [A](#a)', '* [B](#b)' })
 )
 
+local release = { '## Version 1.29.0 (2022-05-21)' }
+check(
+  'gfm drops the dots in a version heading',
+  vim.deep_equal(toc_of(release), { '* [Version 1.29.0 (2022-05-21)](#version-1290-2022-05-21)' })
+)
+mtoc.setup({ toc_list = { link_formatter = 'forgejo' } })
+check(
+  'forgejo turns each run of punctuation into one dash',
+  vim.deep_equal(toc_of(release), { '* [Version 1.29.0 (2022-05-21)](#version-1-29-0-2022-05-21)' })
+)
+check(
+  'forgejo keeps underscores, and suffixes a repeat',
+  vim.deep_equal(toc_of({ '## snake_case name', '## A', '## A' }), { '* [snake_case name](#snake_case-name)', '* [A](#a)', '* [A](#a-1)' })
+)
+check('forgejo names an empty slug heading', vim.deep_equal(toc_of({ '## !!!' }), { '* [!!!](#heading)' }))
+mtoc.setup({})
+
 mtoc.setup({ headings = { exclude = { '^Sub$' } } })
 scratch(document, 2)
 vim.cmd('Mtoc insert')

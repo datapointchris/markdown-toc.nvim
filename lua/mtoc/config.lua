@@ -55,6 +55,11 @@ M.defaults = {
 
     -- Add padding (blank lines) before and after the TOC
     padding_lines = 1,
+
+    -- How each heading's anchor is spelled. "gfm" matches GitHub, which drops
+    -- punctuation. "forgejo" matches Forgejo and Codeberg, which turn each run
+    -- of punctuation and spaces into one dash.
+    link_formatter = 'gfm',
   },
 
   -- Table or boolean. Set to true to use these defaults, set to false to disable completely.

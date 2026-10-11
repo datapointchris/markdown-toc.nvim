@@ -12,10 +12,9 @@ A maintained fork of
 [hedyhli/markdown-toc.nvim](https://github.com/hedyhli/markdown-toc.nvim),
 with fixes to option merging, heading exclusion and marker cycling.
 
-- Supports GitHub Flavoured Markdown links by default. If you want to use
-  another link format a better configuration structure for this is
-  [planned](#todo), but for now you can set your own [formatter
-  function](#advanced-examples).
+- Spells links the way GitHub does by default, or the way Forgejo and Codeberg
+  do with `toc_list.link_formatter = "forgejo"`. Any other format takes your
+  own [formatter function](#advanced-examples).
 - You can disable fences but keep the updating feature by manually selecting
   your table of contents in visual mode, then running `:Mtoc`
 
@@ -170,6 +169,16 @@ Cycling of markers produces a ToC list like this:
   + [Second sub heading](#second-sub-heading)
 ```
 
+Links for a README that Codeberg or another Forgejo instance renders, where
+`## Version 1.2.0` is anchored as `#version-1-2-0` rather than GitHub's
+`#version-120`:
+
+```lua
+toc_list = {
+  link_formatter = "forgejo",
+},
+```
+
 To customize the indent size please see [full
 configurations](#full-configuration).
 
@@ -271,6 +280,11 @@ These shortcuts are shown in `[square brackets]` below.
 
     -- Add padding (blank lines) before and after the TOC
     padding_lines = 1,
+
+    -- How each heading's anchor is spelled. "gfm" matches GitHub, which drops
+    -- punctuation. "forgejo" matches Forgejo and Codeberg, which turn each run
+    -- of punctuation and spaces into one dash.
+    link_formatter = "gfm",
   },
 
   -- Table or boolean. Set to true to use these defaults, set to false to disable completely.
@@ -437,6 +451,5 @@ Here's an example `.nvim.lua` in the wild that makes use of
 
 - Types
 - Lua API
-- Link style chooser
 
 <!-- panvimdoc-ignore-end -->

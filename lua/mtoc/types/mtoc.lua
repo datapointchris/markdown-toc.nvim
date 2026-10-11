@@ -22,6 +22,7 @@
 ---@field item_formatter fun(item_info:mtoc.TocItemInfo, fmtstr:string):string
 ---@field post_processor fun(lines:string[]):string[]
 ---@field padding_lines integer
+---@field link_formatter 'gfm'|'forgejo'
 
 ---@class mtoc.UserConfigTocList
 ---@field markers? string|string[]
@@ -31,6 +32,7 @@
 ---@field item_formatter? fun(item_info:mtoc.TocItemInfo, fmtstr:string):string
 ---@field post_processor? fun(lines:string[]):string[]
 ---@field padding_lines? integer
+---@field link_formatter? 'gfm'|'forgejo'
 
 ---@class mtoc.ConfigFences
 ---@field enabled boolean

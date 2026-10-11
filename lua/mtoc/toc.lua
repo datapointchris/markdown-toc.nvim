@@ -41,6 +41,28 @@ function M.link_formatters.gfm(existing_headings, heading)
   return heading_str
 end
 
+---Link formatter matching Forgejo's heading anchors, which Codeberg serves.
+---Letters, digits and underscores are kept, and each run of anything else between them becomes one dash.
+---@param existing_headings { [string]: boolean }
+---@param heading string
+function M.link_formatters.forgejo(existing_headings, heading)
+  heading = vim.fn.tolower(heading)
+  heading = vim.fn.substitute(heading, [=[[^[:alnum:]À-ÿЀ-ӿ一-龿぀-ゟ゠-ヿ가-힯_]\+]=], '-', 'g')
+  heading = vim.fn.substitute(heading, [[^-\+\|-\+$]], '', 'g')
+  if heading == '' then
+    heading = 'heading'
+  end
+
+  local slug = heading
+  local suffix = 0
+  while existing_headings[slug] do
+    suffix = suffix + 1
+    slug = heading .. '-' .. suffix
+  end
+  existing_headings[slug] = true
+  return slug
+end
+
 ---@see find_fences
 local function _find_fences(fstart, fend, lines)
   local locations = {}
@@ -139,6 +161,13 @@ function M.gen_toc_list(start_from)
 
   local item_formatter = toc_config.item_formatter
 
+  local format_link = M.link_formatters[toc_config.link_formatter]
+  if not format_link then
+    local names = vim.tbl_keys(M.link_formatters)
+    table.sort(names)
+    error(('mtoc: toc_list.link_formatter %q is none of: %s'):format(toc_config.link_formatter, table.concat(names, ', ')))
+  end
+
   local is_inside_code_block = false
   local lines = {}
   local all_heading_links = {}
@@ -163,7 +192,7 @@ function M.gen_toc_list(start_from)
 
     -- An excluded heading still counts toward duplicate slugs, as it does in
     -- GitHub's anchors.
-    local link = M.link_formatters.gfm(all_heading_links, name)
+    local link = format_link(all_heading_links, name)
     if is_excluded(name) then
       goto nextline
     end
