@@ -123,8 +123,9 @@ unmodified, and no undo entry is made.
 fences off it prints `No markdown headings` instead.
 
 `:Mtoc update` and `:Mtoc remove` act only between a start fence and an end
-fence below it. Otherwise each prints one of these:
+fence below it, and only with fences on. Otherwise each prints one of these:
 
+- `Fences are disabled!`
 - `No fences found!`
 - `No start fence found!`
 - `No end fence found!`
@@ -337,6 +338,10 @@ again works only before the text changes.
 `fences = false` writes a ToC with no fences. Nothing then marks where that ToC
 is, so update, remove and the update on save cannot find it. Selecting it and
 running `:'<,'>Mtoc` regenerates it.
+
+While fences are off, update, remove and the update on save search for no
+fences at all. A fenced ToC already in the buffer is left as it is, so an
+update never strips fences it would not write back.
 
 
 THE UPDATE ON SAVE WRITES ONLY A TOC THAT CHANGED, IN THE EDIT’S UNDO STEP*mtoc-the-update-on-save-writes-only-a-toc-that-changed,-in-the-edit’s-undo-step*
