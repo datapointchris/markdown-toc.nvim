@@ -73,8 +73,7 @@ M.defaults = {
     -- substituted with the text.
     start_text = 'mtoc-start',
     end_text = 'mtoc-end',
-    -- An empty line is inserted on top and below the ToC list before the being
-    -- wrapped with the fence texts, same as vim-markdown-toc.
+    -- toc_list.padding_lines blank lines separate the list from each fence.
   },
 
   -- Set auto_update=true to use the following defaults.

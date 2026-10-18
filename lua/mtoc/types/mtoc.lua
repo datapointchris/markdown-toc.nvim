@@ -3,6 +3,8 @@
 ---@field link string
 ---@field marker string
 ---@field indent string
+---@field depth integer
+---@field raw_line string
 
 ---@class mtoc.ConfigHeadings
 ---@field before_toc boolean
@@ -55,7 +57,7 @@
 
 ---@class mtoc.UserConfigAutoUpdate
 ---@field enabled? boolean
----@field events? string[]
+---@field events? string|string[]
 ---@field pattern? string
 
 ---@class mtoc.Config

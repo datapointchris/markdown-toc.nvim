@@ -52,7 +52,7 @@ the next `setup()` starts from it.
 
 A new option needs its default in `config.lua` and a field in both
 `mtoc.Config` and `mtoc.UserConfig`. It also needs an entry in the README's
-Full Configuration block, which is also the vimdoc.
+full configuration block, which is also the vimdoc.
 
 ## Headings are collected in one pass, in document order
 
@@ -136,8 +136,8 @@ so the title carries no date and an unchanged README commits nothing. Its
 added the newest API the code calls. A call to a newer API raises it. Edit the
 README, never `doc/mtoc.txt`. After such a run the local branch is one commit
 behind origin. Sections between `<!-- panvimdoc-ignore-start -->` and
-`<!-- panvimdoc-ignore-end -->` stay out of the vimdoc. Those are the title, the
-ToC and the TODO list.
+`<!-- panvimdoc-ignore-end -->` stay out of the vimdoc. Those are the title and
+the ToC.
 
 ## The README's own ToC is generated with `-` markers
 
