@@ -254,6 +254,16 @@ check(':Mtoc insert still works with auto-update off', vim.deep_equal(buffer_lin
 vim.cmd('Mtoc toggle')
 check(':Mtoc toggle turns auto-update back on', vim.deep_equal(events(), { 'BufWritePre' }))
 
+mtoc.setup({ fences = false })
+local unfenced = vim.fn.tempname() .. '.md'
+vim.cmd.edit(unfenced)
+local stale = vim.list_extend(with_toc(default_toc), { '## Later' })
+vim.api.nvim_buf_set_lines(0, 0, -1, false, stale)
+vim.cmd('silent write')
+check('saving with fences off leaves a fenced ToC as it is', vim.deep_equal(buffer_lines(), stale))
+vim.cmd('bwipeout!')
+vim.fn.delete(unfenced)
+
 local slash_copies = {}
 for name in pairs(package.loaded) do
   if name:match('^mtoc/') then

@@ -87,7 +87,9 @@ an error listing the ones there are.
 ## Fences and code blocks are matched as plain text
 
 A fence is the configured text wrapped in `<!-- -->`, found by plain substring
-search. Equal start and end texts take their own scan in `_find_fences_same`,
+search. `locate_toc` searches only while `fences.enabled` is set. `render_toc`
+writes no fences with it off, so a ToC found by its fences would lose them on
+the next update. Equal start and end texts take their own scan in `_find_fences_same`,
 because one line would otherwise match both. A code block opens on a line
 starting with three backticks, and lines inside one are skipped. That check is
 repeated in `_find_fences`, `_find_fences_same` and `gen_toc_list`. A change to
@@ -153,7 +155,8 @@ list of lint hooks that excludes it. It checks:
 
 - `:Mtoc` and the autocmd exist with no `setup()`, and saving a markdown file
   updates its ToC;
-- insert, update and remove of a fenced ToC;
+- insert, update and remove of a fenced ToC, and a save with fences off leaving
+  a fenced ToC as it is;
 - an update of a current ToC changing nothing, a save-time change undone with
   its edit, and a save straight after an undo;
 - nesting by the headings still open above an entry, including skipped levels;

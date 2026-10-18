@@ -15,14 +15,6 @@ local function fmt_fence_end(fence)
   return '<!-- ' .. fence .. ' -->'
 end
 
-local function get_fences()
-  local fences = config.opts.fences
-  if type(fences) == 'boolean' and fences then
-    fences = config.defaults.fences
-  end
-  return fences
-end
-
 ---The lines of a ToC placed below line `insert_at` of `buffer`, fenced unless `disable_fence`.
 ---nil where there are no headings and no fences to insert in their place.
 ---@param buffer string[]
@@ -35,7 +27,7 @@ local function render_toc(buffer, insert_at, disable_fence)
     scan_from = 0
   end
 
-  local fences = get_fences()
+  local fences = config.opts.fences
   local use_fence = fences.enabled and not disable_fence
 
   local lines = toc.gen_toc_list(scan_from, buffer)
@@ -99,10 +91,18 @@ local function replace_toc(s, e, opts)
 end
 
 ---Line numbers of the ToC's fences, or nil after reporting why there are none.
----@param not_found_ok boolean|nil Stay silent when neither fence is found
+---With fences disabled it searches for nothing. `render_toc` writes no fences then, so rewriting a ToC
+---found by its fences would strip them.
+---@param not_found_ok boolean|nil Stay silent when fences are disabled or neither fence is found
 ---@return { start: integer, end_: integer }|nil
 local function locate_toc(not_found_ok)
-  local fences = get_fences()
+  local fences = config.opts.fences
+  if not fences.enabled then
+    if not not_found_ok then
+      vim.notify('Fences are disabled!', vim.log.levels.ERROR)
+    end
+    return
+  end
   local fstart, fend = fmt_fence_start(fences.start_text), fmt_fence_end(fences.end_text)
 
   local locations = toc.find_fences(fstart, fend)
