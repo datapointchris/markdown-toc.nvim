@@ -10,12 +10,12 @@ author.
 
 `plugin/mtoc.lua` creates `:Mtoc` and registers the autocmd from the current
 options, so the plugin works with no `setup()` call. `setup()` and
-`update_config()` only change options. Each re-registers the autocmd, because
-`enabled`, `events` and `pattern` decide what it listens on. `:Mtoc toggle`
-flips `auto_update.enabled` and re-registers it the same way. `enabled` gates
-only the autocmd, so `insert`, `update` and `remove` work with it off. Registration
-clears the `mtoc` augroup first, so there is at most one autocmd. With
-`auto_update.enabled` false the group stays empty.
+`update_config()` change options and create nothing. Each re-registers the
+autocmd, because `enabled`, `events` and `pattern` decide what it listens on.
+`:Mtoc toggle` flips `auto_update.enabled` and re-registers it the same way.
+`enabled` gates only the autocmd, so `insert`, `update` and `remove` work with
+it off. Registration clears the `mtoc` augroup first, so there is at most one
+autocmd. With `auto_update.enabled` false the group stays empty.
 
 `setup()` merges onto the defaults. `update_config()` merges onto the current
 options, and it is what a project-local `.nvim.lua` calls. A plugin manager
@@ -41,8 +41,9 @@ are the defaults rather than the user's settings. The spec fails when any
 
 `resolve_shortcut_opts` runs after `setup()` and after `update_config()`. It
 turns a boolean `fences` or `auto_update` into its table form. It turns a string
-`markers`, `events` or `exclude` into a one-item list. An option with a
-shortcut form is normalized there.
+`markers`, `events` or `exclude` into a one-item list. A new option with a
+shortcut form is normalized there too, because the rest of the code reads only
+the table and list forms.
 
 `defaults` is never written. `setup()` merges onto a deep copy of it, and a
 boolean shortcut expands to a deep copy of its table. `vim.tbl_deep_extend`
@@ -72,10 +73,10 @@ for later headings to nest under. Setext headings are not recognized.
 
 Links inside a heading are reduced to their text before the name and the slug
 are built. A wiki link, `[[Note]]` or `[[Note|alias]]`, is reduced to its alias
-where it has one. Case folding and character stripping go through `vim.fn.tolower` and
-Vim's regex. Lua's string library works on bytes and mangles non-ASCII headings.
-A new text transform belongs on `vim.fn` for the same reason. A repeated slug
-takes a `-1`, `-2` suffix, as GitHub's anchors do.
+where it has one. Case folding and character stripping go through
+`vim.fn.tolower` and Vim's regex. Lua's string library works on bytes and
+mangles non-ASCII headings. A new text transform belongs on `vim.fn` for the
+same reason. A repeated slug takes a `-1`, `-2` suffix, as GitHub's anchors do.
 
 `toc_list.link_formatter` names one of `toc.link_formatters`. `gfm` follows
 GitHub, which drops punctuation and turns each space into a dash. `forgejo`
@@ -89,12 +90,13 @@ an error listing the ones there are.
 A fence is the configured text wrapped in `<!-- -->`, found by plain substring
 search. `locate_toc` searches only while `fences.enabled` is set. `render_toc`
 writes no fences with it off, so a ToC found by its fences would lose them on
-the next update. Equal start and end texts take their own scan in `_find_fences_same`,
-because one line would otherwise match both. A code block opens on a line
-starting with three backticks, and lines inside one are skipped. That check is
-repeated in `_find_fences`, `_find_fences_same` and `gen_toc_list`. A change to
-what counts as a code block lands in each. `~~~` fences and indented code are
-not recognized, so a `#` line inside one reads as a heading.
+the next update. Equal start and end texts take their own scan in
+`_find_fences_same`, because one line would otherwise match both. A code block
+opens on a line starting with three backticks, and lines inside one are
+skipped. That check is repeated in `_find_fences`, `_find_fences_same` and
+`gen_toc_list`. A change to what counts as a code block lands in each. `~~~`
+fences and indented code are not recognized, so a `#` line inside one reads as
+a heading.
 
 ## Insertion goes below the line it is given
 
@@ -119,23 +121,24 @@ manual `:Mtoc update` never joins, so it is its own undo step.
 
 ## A subcommand abbreviation runs the first prefix match
 
-`M.run` matches the typed word as a prefix against `M.commands`, in order, and
-runs the first hit. Nothing detects ambiguity. A new subcommand
-sharing a leading letter with an existing one changes what the short form runs.
-`M.commands` is also the completion list. `:Mtoc debug` is handled before the
-match and is not in that list. It inserts the bare generated list below the
-cursor, without fences or the post-processor.
+`M.run` matches the typed word against the start of each name in `M.commands`,
+in order, and runs the first hit. The word is a Lua pattern there, so `:Mtoc .`
+runs `insert`. Nothing detects ambiguity, so a new subcommand sharing a leading
+letter with an existing one changes what the short form runs. `M.commands` is
+also the completion list. `:Mtoc debug` is handled before the match and is not
+in that list. It inserts the bare generated list below the cursor, without
+fences or the post-processor.
 
 ## The README is the source of the vimdoc
 
 The panvimdoc workflow converts `README.md` into `doc/mtoc.txt` on every push.
-When the output differs from the committed file, the workflow commits it back
-to the pushed branch as "Auto generate vim doc". It sets panvimdoc's `nodate`,
-so the title carries no date and an unchanged README commits nothing. Its
-`version` names the oldest Neovim the plugin runs on, which is the release that
-added the newest API the code calls. A call to a newer API raises it. Edit the
-README, never `doc/mtoc.txt`. After such a run the local branch is one commit
-behind origin. Sections between `<!-- panvimdoc-ignore-start -->` and
+Edit the README, never `doc/mtoc.txt`. When the output differs from the
+committed file, the workflow commits it back to the pushed branch as "Auto
+generate vim doc", which leaves the local branch one commit behind origin. It
+sets panvimdoc's `nodate`, so the title carries no date and an unchanged README
+commits nothing. Its `version` names the oldest Neovim the plugin runs on, which
+is the release that added the newest API the code calls. A call to a newer API
+raises it. Sections between `<!-- panvimdoc-ignore-start -->` and
 `<!-- panvimdoc-ignore-end -->` stay out of the vimdoc. Those are the title and
 the ToC.
 
@@ -151,24 +154,8 @@ regenerated ToC matches the committed one byte for byte.
 
 `tests/mtoc_spec.lua` loads the plugin in a headless Neovim with no user
 config. The commit hook runs it whenever a Lua file changes. CI runs a fixed
-list of lint hooks that excludes it. It checks:
-
-- `:Mtoc` and the autocmd exist with no `setup()`, and saving a markdown file
-  updates its ToC;
-- insert, update and remove of a fenced ToC, and a save with fences off leaving
-  a fenced ToC as it is;
-- an update of a current ToC changing nothing, a save-time change undone with
-  its edit, and a save straight after an undo;
-- nesting by the headings still open above an entry, including skipped levels;
-- the `gfm` and `forgejo` slugs, and wiki links reduced to their text or alias;
-- `headings.min_level` and `max_level`, and `headings.before_toc` on insert and
-  update;
-- `headings.exclude` as patterns and as a function, and `cycle_markers`;
-- `update_config()` merging onto the current options;
-- `setup()` leaving `defaults` unwritten, and re-registering the autocmd;
-- `:Mtoc toggle` removing and restoring the autocmd, with `insert` still
-  working while it is off;
-- every module loaded once, by its dotted name.
+list of lint hooks that excludes it. Each `check()` name in the spec states the
+behavior it pins, and a failing run prints the names that failed.
 
 ```sh
 nvim --headless -u NONE -l tests/mtoc_spec.lua
@@ -192,6 +179,6 @@ An empty diff means the README's ToC regenerates unchanged.
 There is no `stylua.toml`. StyLua reads `.editorconfig` only when it finds no
 `stylua.toml` or `.stylua.toml`. Its own defaults are tabs, 120 columns and
 double quotes, where `.editorconfig` gives two spaces, 140 columns and single
-quotes. A StyLua config added here has to state all three itself. `toc.lua` uses a
-`goto` label, which is Lua 5.2 and LuaJIT syntax. A StyLua built from crates.io
-with default features cannot parse it. The release binaries can.
+quotes. A StyLua config added here has to state all three itself. `toc.lua`
+uses a `goto` label, which is Lua 5.2 and LuaJIT syntax. A StyLua built from
+crates.io with default features cannot parse it. The release binaries can.
