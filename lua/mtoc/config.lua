@@ -73,7 +73,7 @@ M.defaults = {
     -- substituted with the text.
     start_text = 'mtoc-start',
     end_text = 'mtoc-end',
-    -- toc_list.padding_lines blank lines separate the list from each fence.
+    -- toc_list.padding_lines sets how many blank lines separate the list from each fence.
   },
 
   -- Set auto_update=true to use the following defaults.
