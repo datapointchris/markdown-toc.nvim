@@ -129,9 +129,14 @@ check('a save straight after an undo still updates the ToC', vim.tbl_contains(bu
 vim.cmd('bwipeout!')
 vim.fn.delete(undone)
 
+-- The list `:Mtoc insert` writes for these headings, read from between its fences and their padding.
 local function toc_of(lines)
-  scratch(lines, 1)
-  return require('mtoc.toc').gen_toc_list(0)
+  scratch(vim.list_extend({ '' }, lines), 1)
+  vim.cmd('Mtoc insert')
+  local inserted = buffer_lines()
+  local end_fence = vim.fn.index(inserted, '<!-- mtoc-end -->') + 1
+  local pad = config.opts.toc_list.padding_lines
+  return vim.list_slice(inserted, 3 + pad, end_fence - pad - 1)
 end
 
 mtoc.setup({})
