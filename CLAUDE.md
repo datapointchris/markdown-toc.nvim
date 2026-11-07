@@ -159,22 +159,13 @@ config. The commit hook runs it whenever a Lua file changes. CI runs a fixed
 list of lint hooks that excludes it. Each `check()` name in the spec states the
 behavior it pins, and a failing run prints the names that failed.
 
-```sh
-nvim --headless -u NONE -l tests/mtoc_spec.lua
-```
+The README's own ToC is the second fixture. `scripts/readme-toc-check.sh`
+regenerates it in a copy under `--clean`, which keeps a user config and any
+installed copy of the plugin out of the run, and fails on any difference.
 
-The README's own ToC is the second fixture. `--clean` keeps a user config, and
-any installed copy of the plugin, out of the run:
-
-```sh
-copy=$(mktemp --suffix=.md) && cp README.md "$copy"
-nvim --clean --headless --cmd 'set rtp^=.' \
-  -c 'lua require("mtoc").setup({ toc_list = { markers = "-" } })' \
-  -c 'Mtoc update' -c 'wq' "$copy"
-diff README.md "$copy"
-```
-
-An empty diff means the README's ToC regenerates unchanged.
+`task test` runs the spec and then that script. `task lint` runs the read-only
+checks, `task format` the hooks that rewrite files, and `task setup` installs
+the git hooks.
 
 ## StyLua takes its indent, width and quotes from `.editorconfig`
 

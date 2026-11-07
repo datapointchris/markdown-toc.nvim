@@ -1,0 +1,53 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List the tasks
+    silent: true
+    cmds:
+      - task --list
+
+  setup:
+    desc: Check for the tools the spec and the hooks need, then install the git hooks
+    preconditions:
+      - sh: command -v nvim
+        msg: nvim is not installed
+      - sh: command -v pre-commit
+        msg: pre-commit is not installed
+    cmds:
+      - pre-commit install --hook-type pre-commit --hook-type commit-msg
+
+  test:
+    desc: Run the headless spec, then check the README's own ToC regenerates unchanged
+    cmds:
+      - nvim --headless -u NONE -l tests/mtoc_spec.lua
+      - bash scripts/readme-toc-check.sh
+
+  lint:
+    desc: Run the read-only checks, the StyLua format check included, over every file
+    preconditions:
+      - sh: command -v stylua
+        msg: stylua is not installed; use a release binary, which parses the goto in toc.lua
+    cmds:
+      - stylua --check .
+      - pre-commit run check-yaml --all-files
+      - pre-commit run check-toml --all-files
+      - pre-commit run check-json --all-files
+      - pre-commit run check-json5 --all-files
+      - pre-commit run check-merge-conflict --all-files
+      - pre-commit run check-case-conflict --all-files
+      - pre-commit run detect-private-key --all-files
+      - pre-commit run shellcheck --all-files
+      - pre-commit run codespell --all-files
+      - pre-commit run refcheck --all-files
+      - pre-commit run jactionlint --all-files
+
+  format:
+    desc: Rewrite files with StyLua, shfmt, markdownlint's fixes and the whitespace fixers
+    cmds:
+      - pre-commit run stylua --all-files
+      - pre-commit run shfmt --all-files
+      - pre-commit run markdownlint --all-files
+      - pre-commit run end-of-file-fixer --all-files
+      - pre-commit run trailing-whitespace --all-files
+      - pre-commit run mixed-line-ending --all-files
