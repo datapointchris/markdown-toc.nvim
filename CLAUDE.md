@@ -52,8 +52,10 @@ not merge. So a write through `opts` without the copy lands in `defaults`, and
 the next `setup()` starts from it.
 
 A new option needs its default in `config.lua` and a field in both
-`mtoc.Config` and `mtoc.UserConfig`. It also needs an entry in the README's
-full configuration block, which is also the vimdoc.
+`mtoc.Config` and `mtoc.UserConfig`. `config.lua` holds the values and no
+prose. The README's full configuration block, which is also the vimdoc,
+describes each option. The spec loads that block and fails when an option is
+missing from it or its value differs from `config.defaults`.
 
 ## Headings are collected in one pass, in document order
 

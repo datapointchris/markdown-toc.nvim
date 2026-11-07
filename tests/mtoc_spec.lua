@@ -264,6 +264,40 @@ check('saving with fences off leaves a fenced ToC as it is', vim.deep_equal(buff
 vim.cmd('bwipeout!')
 vim.fn.delete(unfenced)
 
+-- A function compares by its presence, since the README's copy is a different closure.
+local function comparable(value)
+  if type(value) == 'function' then
+    return 'function'
+  end
+  if type(value) ~= 'table' then
+    return value
+  end
+  local copy = {}
+  for key, item in pairs(value) do
+    copy[key] = comparable(item)
+  end
+  return copy
+end
+
+local readme_block = {}
+local in_section, in_block = false, false
+for _, line in ipairs(vim.fn.readfile(repo_root .. '/README.md')) do
+  if in_block and line == '```' then
+    break
+  elseif in_block then
+    table.insert(readme_block, line)
+  elseif vim.startswith(line, '## ') then
+    in_section = vim.startswith(line, '## Full configuration')
+  elseif in_section and line == '```lua' then
+    in_block = true
+  end
+end
+local readme_config = load('return ' .. table.concat(readme_block, '\n'))
+check(
+  "the README's full configuration lists every default at its value",
+  readme_config ~= nil and vim.deep_equal(comparable(readme_config()), comparable(config.defaults))
+)
+
 local slash_copies = {}
 for name in pairs(package.loaded) do
   if name:match('^mtoc/') then

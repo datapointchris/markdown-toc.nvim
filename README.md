@@ -436,7 +436,7 @@ lazy.nvim's `opts`.
     -- A string, or a list of strings to cycle through by depth.
     -- With cycle_markers = false, only the first in a list is used.
     -- '1.' gives a numbered list where the renderer numbers one.
-    markers = '*',
+    markers = { '*' },
     cycle_markers = false,
 
     -- An integer, or a function returning one. A function is called every time
