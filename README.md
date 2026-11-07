@@ -119,7 +119,6 @@ one. It passes over a file with neither fence without a message.
 ```
 
 A subcommand runs from any prefix of its name, so `:Mtoc u` is `:Mtoc update`.
-Each subcommand starts with a different letter, so one letter is enough.
 
 A range works with `update` too, so `:'<,'>Mtoc u!` is `:'<,'>Mtoc!`. The range
 form needs no fences. It is how a ToC written with fences off gets updated.

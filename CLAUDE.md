@@ -124,8 +124,8 @@ manual `:Mtoc update` never joins, so it is its own undo step.
 ## A subcommand abbreviation runs the first prefix match
 
 `M.run` matches the typed word against the start of each name in `M.commands`,
-in order, and runs the first hit. The word is a Lua pattern there, so `:Mtoc .`
-runs `insert`. Nothing detects ambiguity, so a new subcommand sharing a leading
+in order, and runs the first hit. The word is a literal prefix, compared with
+`vim.startswith`. Nothing detects ambiguity, so a new subcommand sharing a leading
 letter with an existing one changes what the short form runs. `M.commands` is
 also the completion list. `:Mtoc debug` is handled before the match and is not
 in that list. It inserts the bare generated list below the cursor, without

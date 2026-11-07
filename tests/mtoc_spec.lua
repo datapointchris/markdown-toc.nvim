@@ -65,6 +65,17 @@ vim.cmd('Mtoc remove')
 local removed = vim.list_extend(vim.deepcopy(document), { '## Three' })
 check('remove deletes the ToC and its fences', vim.deep_equal(buffer_lines(), removed))
 
+scratch(document, 2)
+vim.cmd('Mtoc insert')
+vim.api.nvim_buf_set_lines(0, -1, -1, false, { '## Three' })
+vim.cmd('Mtoc u')
+local by_prefix = buffer_lines()
+pcall(vim.cmd, 'Mtoc .')
+check(
+  'a subcommand runs from a literal prefix of its name, and no other word',
+  vim.tbl_contains(by_prefix, '* [Three](#three)') and vim.deep_equal(buffer_lines(), by_prefix)
+)
+
 local saved = vim.fn.tempname() .. '.md'
 vim.cmd.edit(saved)
 vim.api.nvim_buf_set_lines(0, 0, -1, false, document)

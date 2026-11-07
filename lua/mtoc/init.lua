@@ -195,7 +195,7 @@ function M.run(opts)
 
   local found = false
   for _, v in ipairs(M.commands) do
-    if string.match(v, '^' .. cmd) then
+    if vim.startswith(v, cmd) then
       cmd = v
       found = true
       break
