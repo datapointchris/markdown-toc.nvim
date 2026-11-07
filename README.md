@@ -130,13 +130,16 @@ unmodified, and no undo entry is made.
 fences off it prints `No markdown headings` instead.
 
 `:Mtoc update` and `:Mtoc remove` act only between a start fence and an end
-fence below it, and only with fences on. Otherwise each prints one of these:
+fence below it, and only with fences on. Otherwise each prints one of these,
+followed by the command that fixes it:
 
-- `Fences are disabled!`
-- `No fences found!`
-- `No start fence found!`
-- `No end fence found!`
-- `End fence found before start fence!`
+- `Fences are disabled!` Select the ToC and run `:'<,'>Mtoc` to regenerate it
+  unfenced.
+- `No fences found!` Run `:Mtoc insert` for a new ToC, or select an unfenced
+  one and run `:'<,'>Mtoc!` to fence it.
+- `No start fence found!`, `No end fence found!` or
+  `End fence found before start fence!` Select the ToC and run `:'<,'>Mtoc!` to
+  rewrite it between fences.
 
 ## The ToC lists only the headings below it
 

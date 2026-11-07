@@ -99,29 +99,33 @@ local function locate_toc(not_found_ok)
   local fences = config.opts.fences
   if not fences.enabled then
     if not not_found_ok then
-      vim.notify('Fences are disabled!', vim.log.levels.ERROR)
+      vim.notify("Fences are disabled! Select the ToC and run :'<,'>Mtoc to regenerate it unfenced", vim.log.levels.ERROR)
     end
     return
   end
   local fstart, fend = fmt_fence(fences.start_text), fmt_fence(fences.end_text)
+  local rewrite_between_fences = " Select the ToC and run :'<,'>Mtoc! to rewrite it between fences"
 
   local locations = toc.find_fences(fstart, fend)
   if empty_or_nil(locations) or (falsey(locations.start) and falsey(locations.end_)) then
     if not not_found_ok then
-      vim.notify('No fences found!', vim.log.levels.ERROR)
+      vim.notify(
+        "No fences found! Run :Mtoc insert for a new ToC, or select an unfenced one and run :'<,'>Mtoc! to fence it",
+        vim.log.levels.ERROR
+      )
     end
     return
   end
   if locations.start and falsey(locations.end_) then
-    vim.notify('No end fence found!', vim.log.levels.ERROR)
+    vim.notify('No end fence found!' .. rewrite_between_fences, vim.log.levels.ERROR)
     return
   end
   if falsey(locations.start) and locations.end_ then
-    vim.notify('No start fence found!', vim.log.levels.ERROR)
+    vim.notify('No start fence found!' .. rewrite_between_fences, vim.log.levels.ERROR)
     return
   end
   if locations.start > locations.end_ then
-    vim.notify('End fence found before start fence!', vim.log.levels.ERROR)
+    vim.notify('End fence found before start fence!' .. rewrite_between_fences, vim.log.levels.ERROR)
     return
   end
   return locations
@@ -203,7 +207,7 @@ function M.run(opts)
   end
 
   if not found then
-    vim.notify('Unknown command ' .. cmd, vim.log.levels.ERROR)
+    vim.notify(('Unknown command %s. The subcommands are %s'):format(cmd, table.concat(M.commands, ', ')), vim.log.levels.ERROR)
     return
   end
 
