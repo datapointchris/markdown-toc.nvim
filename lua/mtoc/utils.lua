@@ -22,7 +22,7 @@ end
 
 ---Return whether tbl is either empty or nil
 ---@param tbl table|nil
----@return boolean emtpy_or_nil True means tbl ~= nil and tbl ~= {}
+---@return boolean empty_or_nil True when tbl is nil or has no entries
 function M.empty_or_nil(tbl)
   return not tbl or next(tbl) == nil
 end
