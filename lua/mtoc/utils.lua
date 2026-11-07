@@ -41,8 +41,11 @@ function M.falsey(obj)
   return not obj
 end
 
-function M.truthy(obj)
-  return not M.falsey(obj)
+---Whether the line opens or closes a fenced code block. Only a line starting with three backticks counts.
+---@param line string
+---@return boolean
+function M.is_code_fence(line)
+  return vim.startswith(line, '```')
 end
 
 return M

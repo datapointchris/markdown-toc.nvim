@@ -1,4 +1,5 @@
 local config = require('mtoc.config')
+local utils = require('mtoc.utils')
 
 local M = {}
 M.link_formatters = {}
@@ -72,7 +73,7 @@ local function _find_fences(fstart, fend, lines)
       break
     end
 
-    if string.find(line, '^```') then
+    if utils.is_code_fence(line) then
       in_code = not in_code
     else
       if not in_code then
@@ -94,7 +95,7 @@ local function _find_fences_same(fence, lines)
   local in_code = false
   local locations = {}
   for i, line in ipairs(lines) do
-    if string.find(line, '^```') then
+    if utils.is_code_fence(line) then
       in_code = not in_code
     else
       if not in_code then
@@ -178,7 +179,7 @@ function M.gen_toc_list(start_from, buffer)
   local open_levels = {}
 
   for _, line in ipairs(vim.list_slice(buffer, start_from + 1)) do
-    if string.find(line, '^```') then
+    if utils.is_code_fence(line) then
       is_inside_code_block = not is_inside_code_block
     end
     if is_inside_code_block then

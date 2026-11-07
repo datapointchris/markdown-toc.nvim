@@ -8,10 +8,10 @@ local falsey = utils.falsey
 local M = {}
 M.commands = { 'insert', 'update', 'remove', 'toggle' }
 
-local function fmt_fence_start(fence)
-  return '<!-- ' .. fence .. ' -->'
-end
-local function fmt_fence_end(fence)
+---The fence line for a fence text, which is the same shape at the start and the end of a ToC
+---@param fence string
+---@return string
+local function fmt_fence(fence)
   return '<!-- ' .. fence .. ' -->'
 end
 
@@ -35,7 +35,7 @@ local function render_toc(buffer, insert_at, disable_fence)
     if not use_fence then
       return nil
     end
-    return { fmt_fence_start(fences.start_text), '', fmt_fence_end(fences.end_text) }
+    return { fmt_fence(fences.start_text), '', fmt_fence(fences.end_text) }
   end
 
   lines = config.opts.toc_list.post_processor(lines)
@@ -44,11 +44,11 @@ local function render_toc(buffer, insert_at, disable_fence)
     for _ = 1, pad do
       table.insert(lines, 1, '')
     end
-    table.insert(lines, 1, fmt_fence_start(fences.start_text))
+    table.insert(lines, 1, fmt_fence(fences.start_text))
     for _ = 1, pad do
       table.insert(lines, '')
     end
-    table.insert(lines, fmt_fence_end(fences.end_text))
+    table.insert(lines, fmt_fence(fences.end_text))
   end
   return lines
 end
@@ -103,7 +103,7 @@ local function locate_toc(not_found_ok)
     end
     return
   end
-  local fstart, fend = fmt_fence_start(fences.start_text), fmt_fence_end(fences.end_text)
+  local fstart, fend = fmt_fence(fences.start_text), fmt_fence(fences.end_text)
 
   local locations = toc.find_fences(fstart, fend)
   if empty_or_nil(locations) or (falsey(locations.start) and falsey(locations.end_)) then

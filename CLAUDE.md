@@ -93,8 +93,8 @@ writes no fences with it off, so a ToC found by its fences would lose them on
 the next update. Equal start and end texts take their own scan in
 `_find_fences_same`, because one line would otherwise match both. A code block
 opens on a line starting with three backticks, and lines inside one are
-skipped. That check is repeated in `_find_fences`, `_find_fences_same` and
-`gen_toc_list`. A change to what counts as a code block lands in each. `~~~`
+skipped. `utils.is_code_fence` is that test, and `_find_fences`,
+`_find_fences_same` and `gen_toc_list` all call it. `~~~`
 fences and indented code are not recognized, so a `#` line inside one reads as
 a heading.
 
