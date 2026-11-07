@@ -179,8 +179,9 @@ An empty diff means the README's ToC regenerates unchanged.
 ## StyLua takes its indent, width and quotes from `.editorconfig`
 
 There is no `stylua.toml`. StyLua reads `.editorconfig` only when it finds no
-`stylua.toml` or `.stylua.toml`. Its own defaults are tabs, 120 columns and
-double quotes, where `.editorconfig` gives two spaces, 140 columns and single
-quotes. A StyLua config added here has to state all three itself. `toc.lua`
+`stylua.toml` or `.stylua.toml`. The indent comes from its `[*]` section, and
+the width and quote style from its `[*.lua]` section, whose comment says why
+each differs from StyLua's own default. A StyLua config added here stops StyLua
+reading `.editorconfig`, so it has to state all three itself. `toc.lua`
 uses a `goto` label, which is Lua 5.2 and LuaJIT syntax. A StyLua built from
 crates.io with default features cannot parse it. The release binaries can.
