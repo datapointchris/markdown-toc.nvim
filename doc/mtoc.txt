@@ -111,7 +111,6 @@ Autocommands ---` with nothing under it means `auto_update` is off.
 <
 
 A subcommand runs from any prefix of its name, so `:Mtoc u` is `:Mtoc update`.
-Each subcommand starts with a different letter, so one letter is enough.
 
 A range works with `update` too, so `:'<,'>Mtoc u!` is `:'<,'>Mtoc!`. The range
 form needs no fences. It is how a ToC written with fences off gets updated.
@@ -123,13 +122,16 @@ unmodified, and no undo entry is made.
 fences off it prints `No markdown headings` instead.
 
 `:Mtoc update` and `:Mtoc remove` act only between a start fence and an end
-fence below it, and only with fences on. Otherwise each prints one of these:
+fence below it, and only with fences on. Otherwise each prints one of these,
+followed by the command that fixes it:
 
-- `Fences are disabled!`
-- `No fences found!`
-- `No start fence found!`
-- `No end fence found!`
-- `End fence found before start fence!`
+- `Fences are disabled!` Select the ToC and run `:'<,'>Mtoc` to regenerate it
+    unfenced.
+- `No fences found!` Run `:Mtoc insert` for a new ToC, or select an unfenced
+    one and run `:'<,'>Mtoc!` to fence it.
+- `No start fence found!`, `No end fence found!` or
+    `End fence found before start fence!` Select the ToC and run `:'<,'>Mtoc!` to
+    rewrite it between fences.
 
 
 THE TOC LISTS ONLY THE HEADINGS BELOW IT*mtoc-the-toc-lists-only-the-headings-below-it*
@@ -435,7 +437,7 @@ lazy.nvim’s `opts`.
         -- A string, or a list of strings to cycle through by depth.
         -- With cycle_markers = false, only the first in a list is used.
         -- '1.' gives a numbered list where the renderer numbers one.
-        markers = '*',
+        markers = { '*' },
         cycle_markers = false,
 
         -- An integer, or a function returning one. A function is called every time
